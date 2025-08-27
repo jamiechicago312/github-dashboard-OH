@@ -1,0 +1,27 @@
+# OpenHands Repository Boilerplate Dependencies
+# Python packages required for validation and testing
+
+# Testing framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Code quality and linting
+flake8>=6.0.0
+black>=23.0.0
+isort>=5.12.0
+
+# Type checking
+mypy>=1.0.0
+
+# Documentation
+sphinx>=5.0.0
+sphinx-rtd-theme>=1.2.0
+
+# Utilities for validation scripts
+pathlib2>=2.3.7; python_version < '3.4'
+typing-extensions>=4.0.0; python_version < '3.8'
+
+# Development dependencies (optional)
+# Uncomment if needed for development
+# pre-commit>=3.0.0
+# tox>=4.0.0
