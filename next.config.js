@@ -1,3 +1,5 @@
+const path = require('path')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -15,6 +17,18 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname),
+      '@/components': path.resolve(__dirname, 'components'),
+      '@/lib': path.resolve(__dirname, 'lib'),
+      '@/types': path.resolve(__dirname, 'types'),
+      '@/utils': path.resolve(__dirname, 'utils'),
+      '@/app': path.resolve(__dirname, 'app'),
+    }
+    return config
   },
   async headers() {
     return [
