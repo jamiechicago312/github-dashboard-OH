@@ -46,6 +46,9 @@ Thumbs.db
 logs
 *.log
 
+# Cache
+.cache/
+
 # Python (legacy from boilerplate)
 __pycache__/
 *.py[cod]

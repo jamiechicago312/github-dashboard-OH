@@ -2,73 +2,46 @@ import { NextResponse } from 'next/server'
 import { GitHubAPI } from '@/lib/github-api'
 import { DashboardData } from '@/types/github'
 import { isExternalContributor } from '@/lib/utils'
-import { cache, CacheKeys, CacheTTL } from '@/lib/cache'
+import { SimpleCache } from '@/lib/simple-cache'
 
 const OWNER = 'All-Hands-AI'
 const REPO = 'OpenHands'
 const ORG = 'All-Hands-AI'
 
-// Helper function to get cached data or fetch fresh data
-async function getCachedOrFetch<T>(
-  cacheKey: string,
-  fetchFn: () => Promise<T>,
-  ttlMinutes: number
-): Promise<T> {
-  const cached = cache.get<T>(cacheKey)
-  if (cached) {
-    console.log(`Cache hit for ${cacheKey}`)
-    return cached
-  }
-  
-  console.log(`Cache miss for ${cacheKey}, fetching...`)
-  const data = await fetchFn()
-  cache.set(cacheKey, data, ttlMinutes)
-  return data
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    console.log('Fetching dashboard data...')
+    console.log('Dashboard API called')
 
-    // Check if we have cached dashboard data
-    const dashboardCacheKey = CacheKeys.dashboardData(OWNER, REPO, ORG)
-    const cachedDashboard = cache.get<DashboardData>(dashboardCacheKey)
+    // Check if we have cached data that's less than 1 hour old
+    const cachedData = await SimpleCache.get<DashboardData>()
     
-    if (cachedDashboard) {
+    if (cachedData) {
       console.log('Returning cached dashboard data')
-      return NextResponse.json(cachedDashboard)
+      const status = await SimpleCache.getStatus()
+      return NextResponse.json({
+        ...cachedData,
+        _cache: {
+          cached: true,
+          lastRefresh: status.lastRefresh,
+          nextRefreshAvailable: status.nextRefreshAvailable
+        }
+      })
     }
 
-    console.log('Cache miss, fetching fresh data...')
+    console.log('No valid cache found, fetching fresh data from GitHub...')
 
-    // Fetch basic repository and organization info with caching
+    // Fetch basic repository and organization info
     const [repository, organization] = await Promise.all([
-      getCachedOrFetch(
-        CacheKeys.repository(OWNER, REPO),
-        () => GitHubAPI.getRepository(OWNER, REPO),
-        CacheTTL.repository
-      ),
-      getCachedOrFetch(
-        CacheKeys.organization(ORG),
-        () => GitHubAPI.getOrganization(ORG),
-        CacheTTL.organization
-      ),
+      GitHubAPI.getRepository(OWNER, REPO),
+      GitHubAPI.getOrganization(ORG),
     ])
 
     console.log('Fetched basic info, getting contributors...')
 
-    // Fetch contributors and organization members with caching
+    // Fetch contributors and organization members
     const [contributors, orgMembers] = await Promise.all([
-      getCachedOrFetch(
-        CacheKeys.contributors(OWNER, REPO),
-        () => GitHubAPI.getAllRepositoryContributors(OWNER, REPO),
-        CacheTTL.contributors
-      ),
-      getCachedOrFetch(
-        CacheKeys.orgMembers(ORG),
-        () => GitHubAPI.getAllOrganizationMembers(ORG),
-        CacheTTL.orgMembers
-      ),
+      GitHubAPI.getAllRepositoryContributors(OWNER, REPO),
+      GitHubAPI.getAllOrganizationMembers(ORG),
     ])
 
     console.log(`Found ${contributors.length} contributors, ${orgMembers.length} org members`)
@@ -96,47 +69,23 @@ export async function GET() {
 
     console.log('Fetching recent activity...')
 
-    // Fetch recent activity (last 30 days) with caching
+    // Fetch recent activity (last 30 days)
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
     const [recentCommits, recentPullRequests, recentIssues, releases] = await Promise.all([
-      getCachedOrFetch(
-        CacheKeys.recentCommits(OWNER, REPO),
-        () => GitHubAPI.getRepositoryCommits(OWNER, REPO, thirtyDaysAgo.toISOString(), 1, 20),
-        CacheTTL.recentActivity
-      ),
-      getCachedOrFetch(
-        CacheKeys.recentPRs(OWNER, REPO),
-        () => GitHubAPI.getRepositoryPullRequests(OWNER, REPO, 'all', 1, 20),
-        CacheTTL.recentActivity
-      ),
-      getCachedOrFetch(
-        CacheKeys.recentIssues(OWNER, REPO),
-        () => GitHubAPI.getRepositoryIssues(OWNER, REPO, 'all', 1, 20),
-        CacheTTL.recentActivity
-      ),
-      getCachedOrFetch(
-        CacheKeys.releases(OWNER, REPO),
-        () => GitHubAPI.getRepositoryReleases(OWNER, REPO, 1, 10),
-        CacheTTL.releases
-      ),
+      GitHubAPI.getRepositoryCommits(OWNER, REPO, thirtyDaysAgo.toISOString(), 1, 20),
+      GitHubAPI.getRepositoryPullRequests(OWNER, REPO, 'all', 1, 20),
+      GitHubAPI.getRepositoryIssues(OWNER, REPO, 'all', 1, 20),
+      GitHubAPI.getRepositoryReleases(OWNER, REPO, 1, 10),
     ])
 
     console.log('Calculating statistics...')
 
-    // Calculate statistics with caching
+    // Calculate statistics
     const [stats, orgStats] = await Promise.all([
-      getCachedOrFetch(
-        CacheKeys.repoStats(OWNER, REPO),
-        () => GitHubAPI.calculateRepositoryStats(OWNER, REPO),
-        CacheTTL.stats
-      ),
-      getCachedOrFetch(
-        CacheKeys.orgStats(ORG),
-        () => GitHubAPI.calculateOrganizationStats(ORG),
-        CacheTTL.stats
-      ),
+      GitHubAPI.calculateRepositoryStats(OWNER, REPO),
+      GitHubAPI.calculateOrganizationStats(ORG),
     ])
 
     // Mock contribution stats for now (GitHub's stats API can be slow/unreliable)
@@ -161,10 +110,19 @@ export async function GET() {
 
     console.log('Dashboard data prepared successfully')
 
-    // Cache the complete dashboard data
-    cache.set(dashboardCacheKey, dashboardData, CacheTTL.dashboardData)
+    // Cache the complete dashboard data for 1 hour
+    await SimpleCache.set(dashboardData)
 
-    return NextResponse.json(dashboardData)
+    const status = await SimpleCache.getStatus()
+    
+    return NextResponse.json({
+      ...dashboardData,
+      _cache: {
+        cached: false,
+        lastRefresh: status.lastRefresh,
+        nextRefreshAvailable: status.nextRefreshAvailable
+      }
+    })
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
     

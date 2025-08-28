@@ -47,8 +47,8 @@ export function formatDate(dateString: string): string {
 /**
  * Format relative time (e.g., "2 hours ago", "3 days ago")
  */
-export function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString)
+export function formatRelativeTime(dateInput: string | Date): string {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
   const now = new Date()
   const diffTime = now.getTime() - date.getTime()
   
