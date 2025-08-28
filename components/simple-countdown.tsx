@@ -6,6 +6,9 @@ export function SimpleCountdown() {
   const [countdown, setCountdown] = useState<string>('')
 
   useEffect(() => {
+    let countdownInterval: NodeJS.Timeout | null = null
+    let fetchInterval: NodeJS.Timeout | null = null
+
     const fetchAndUpdateCountdown = async () => {
       try {
         const response = await fetch('/api/github/refresh')
@@ -24,6 +27,10 @@ export function SimpleCountdown() {
           
           if (timeLeft <= 0) {
             setCountdown('')
+            if (countdownInterval) {
+              clearInterval(countdownInterval)
+              countdownInterval = null
+            }
             return
           }
 
@@ -33,8 +40,8 @@ export function SimpleCountdown() {
         }
 
         updateCountdown()
-        const interval = setInterval(updateCountdown, 1000)
-        return () => clearInterval(interval)
+        if (countdownInterval) clearInterval(countdownInterval)
+        countdownInterval = setInterval(updateCountdown, 1000)
       } catch (error) {
         console.error('Failed to fetch refresh status:', error)
         setCountdown('')
@@ -42,8 +49,12 @@ export function SimpleCountdown() {
     }
 
     fetchAndUpdateCountdown()
-    const interval = setInterval(fetchAndUpdateCountdown, 30000) // Update every 30 seconds
-    return () => clearInterval(interval)
+    fetchInterval = setInterval(fetchAndUpdateCountdown, 30000) // Update every 30 seconds
+    
+    return () => {
+      if (countdownInterval) clearInterval(countdownInterval)
+      if (fetchInterval) clearInterval(fetchInterval)
+    }
   }, [])
 
   if (!countdown) return null

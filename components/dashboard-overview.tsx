@@ -39,15 +39,15 @@ export function DashboardOverview() {
     )
   }
 
-  if (!data) return null
+  if (!data || !data.repository) return null
 
   const { 
     repository, 
-    contributors, 
-    externalContributors, 
-    firstTimeContributors,
-    agentContributors,
-    totalAgentContributions,
+    contributors = [], 
+    externalContributors = [], 
+    firstTimeContributors = [],
+    agentContributors = [],
+    totalAgentContributions = 0,
     orgStats 
   } = data
 
