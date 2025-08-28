@@ -1,17 +1,21 @@
 'use client'
 
 import Link from 'next/link'
-import { Github, ExternalLink } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { ThemeToggle } from './theme-toggle'
+import { OpenHandsLogo } from './openhands-logo'
 
 export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center space-x-4">
-          <Link href="/" className="flex items-center space-x-2">
-            <Github className="h-6 w-6" />
-            <span className="font-bold">OpenHands Dashboard</span>
+          <Link href="/" className="flex items-center space-x-3">
+            <div className="flex items-center space-x-1">
+              <OpenHandsLogo className="h-7 w-7 text-primary" size={28} />
+              <span className="text-lg">🙌</span>
+            </div>
+            <span className="font-brand text-lg">OpenHands Dashboard</span>
           </Link>
         </div>
 

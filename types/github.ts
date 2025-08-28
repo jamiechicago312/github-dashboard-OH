@@ -51,6 +51,7 @@ export interface GitHubContributor {
   company?: string
   location?: string
   isExternal?: boolean
+  isAgent?: boolean
 }
 
 export interface GitHubCommit {
@@ -181,6 +182,9 @@ export interface DashboardData {
   organization: GitHubUser
   contributors: GitHubContributor[]
   externalContributors: GitHubContributor[]
+  firstTimeContributors: GitHubContributor[]
+  agentContributors: GitHubContributor[]
+  totalAgentContributions: number
   recentCommits: GitHubCommit[]
   recentPullRequests: GitHubPullRequest[]
   recentIssues: GitHubIssue[]

@@ -54,6 +54,15 @@ export async function GET(request: Request) {
 
     console.log(`Found ${externalContributors.length} external contributors`)
 
+    // Track OpenHands agent contributions
+    const openHandsAgents = ['openhands', 'openhands-agent', 'openhands-ai']
+    const agentContributors = contributors.filter(contributor => 
+      openHandsAgents.includes(contributor.login.toLowerCase())
+    )
+    const totalAgentContributions = agentContributors.reduce((sum, contributor) => sum + contributor.contributions, 0)
+
+    console.log(`Found ${agentContributors.length} OpenHands agent contributors with ${totalAgentContributions} total contributions`)
+
     // Get detailed contributor information for top external contributors
     const topExternalContributors = externalContributors
       .sort((a, b) => b.contributions - a.contributions)
@@ -61,10 +70,20 @@ export async function GET(request: Request) {
 
     const detailedExternalContributors = await GitHubAPI.getContributorDetails(topExternalContributors)
 
+    // Get first-time contributors (contributors with only 1 contribution, sorted by most recent)
+    const firstTimeContributors = contributors
+      .filter(contributor => contributor.contributions === 1)
+      .slice(0, 20) // GitHub API returns contributors sorted by recent activity for single contributions
+
+    const detailedFirstTimeContributors = await GitHubAPI.getContributorDetails(firstTimeContributors)
+
+    console.log(`Found ${firstTimeContributors.length} first-time contributors`)
+
     // Mark external contributors
     const allContributorsWithFlags = contributors.map(contributor => ({
       ...contributor,
       isExternal: isExternalContributor(contributor, orgMemberLogins),
+      isAgent: openHandsAgents.includes(contributor.login.toLowerCase()),
     }))
 
     console.log('Fetching recent activity...')
@@ -99,6 +118,9 @@ export async function GET(request: Request) {
       organization,
       contributors: allContributorsWithFlags,
       externalContributors: detailedExternalContributors,
+      firstTimeContributors: detailedFirstTimeContributors,
+      agentContributors,
+      totalAgentContributions,
       recentCommits,
       recentPullRequests,
       recentIssues,

@@ -31,7 +31,7 @@ export function RepositoryMetrics() {
   if (error) {
     return (
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="font-semibold mb-4">Repository Metrics</h3>
+        <h3 className="font-heading font-semibold mb-4">Repository Metrics</h3>
         <div className="text-center text-muted-foreground">
           <p>Failed to load repository data</p>
         </div>
@@ -74,7 +74,7 @@ export function RepositoryMetrics() {
     <div className="space-y-6">
       {/* Repository Metrics */}
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="font-semibold mb-4">Repository Metrics</h3>
+        <h3 className="font-heading font-semibold mb-4">Repository Metrics</h3>
         
         <div className="grid grid-cols-2 gap-4 mb-6">
           {metrics.map((metric) => {
@@ -121,7 +121,7 @@ export function RepositoryMetrics() {
 
       {/* Recent Activity */}
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="font-semibold mb-4">Recent Activity</h3>
+        <h3 className="font-heading font-semibold mb-4">Recent Activity</h3>
         
         <div className="space-y-4">
           {/* Recent Commits */}
