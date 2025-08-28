@@ -10,7 +10,9 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export function ActivityChart() {
   const { data, error, isLoading } = useSWR<DashboardData>('/api/github/dashboard', fetcher, {
-    refreshInterval: 300000,
+    refreshInterval: 900000, // Refresh every 15 minutes
+    revalidateOnReconnect: false, // Don't refetch on network reconnect
+    dedupingInterval: 300000, // Dedupe requests within 5 minutes
     revalidateOnFocus: false,
   })
 
