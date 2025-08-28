@@ -95,7 +95,7 @@ export function DashboardOverview() {
     <div className="space-y-6">
       {/* Repository Info */}
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-heading">{repository.full_name}</h2>
+        <h2 className="text-2xl font-semibold">{repository.full_name}</h2>
         {repository.description && (
           <p className="text-muted-foreground">{repository.description}</p>
         )}
@@ -117,7 +117,7 @@ export function DashboardOverview() {
             >
               <div className="flex items-center space-x-2">
                 <Icon className={`h-5 w-5 ${isHighlight ? 'text-primary' : 'text-muted-foreground'}`} />
-                <h3 className="font-heading font-medium">{stat.title}</h3>
+                <h3 className="font-medium">{stat.title}</h3>
               </div>
               <div className="mt-2">
                 <p className={`text-2xl font-bold ${isHighlight ? 'text-primary' : ''}`}>
@@ -135,7 +135,7 @@ export function DashboardOverview() {
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
           <div className="flex items-center space-x-2 mb-4">
             <UserPlus className="h-5 w-5 text-green-500" />
-            <h3 className="font-heading font-semibold">Recent First-Time Contributors</h3>
+            <h3 className="font-semibold">Recent First-Time Contributors</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {firstTimeContributors.slice(0, 12).map((contributor) => (
@@ -165,7 +165,7 @@ export function DashboardOverview() {
         <div className="rounded-lg border bg-primary/5 border-primary/20 text-card-foreground shadow-sm p-6">
           <div className="flex items-center space-x-2 mb-4">
             <Bot className="h-5 w-5 text-primary" />
-            <h3 className="font-heading font-semibold">OpenHands Autonomous Agent</h3>
+            <h3 className="font-semibold">OpenHands Autonomous Agent</h3>
           </div>
           <div className="space-y-3">
             {agentContributors.map((agent) => (
@@ -199,7 +199,7 @@ export function DashboardOverview() {
 
       {/* Organization Stats */}
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="font-heading font-semibold mb-4">All-Hands-AI Organization</h3>
+        <h3 className="font-semibold mb-4">All-Hands-AI Organization</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center">
             <p className="text-2xl font-bold">{formatNumber(orgStats.repositories.length)}</p>

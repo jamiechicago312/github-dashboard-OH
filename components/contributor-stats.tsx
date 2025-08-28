@@ -23,7 +23,7 @@ export function ContributorStats() {
   if (error) {
     return (
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="font-heading font-semibold mb-4 flex items-center space-x-2">
+        <h3 className="font-semibold mb-4 flex items-center space-x-2">
           <Users className="h-5 w-5" />
           <span>External Contributors</span>
         </h3>
@@ -46,7 +46,7 @@ export function ContributorStats() {
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="font-heading font-semibold flex items-center space-x-2">
+        <h3 className="font-semibold flex items-center space-x-2">
           <Award className="h-5 w-5 text-yellow-500" />
           <span>Top External Contributors</span>
         </h3>

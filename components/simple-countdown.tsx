@@ -60,8 +60,8 @@ export function SimpleCountdown() {
   if (!countdown) return null
 
   return (
-    <span className="text-xs text-muted-foreground font-mono">
+    <div className="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md border text-xs font-mono transition-all duration-200 hover:shadow-md hover:bg-secondary/80">
       [{countdown} time until refresh]
-    </span>
+    </div>
   )
 }
