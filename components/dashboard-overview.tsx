@@ -5,21 +5,16 @@ import { Star, GitFork, Users, Activity, Bot, UserPlus } from 'lucide-react'
 import { DashboardData } from '@/types/github'
 import { formatNumber } from '@/lib/utils'
 import { LoadingSpinner } from './loading-card'
-import { RefreshStatus } from './refresh-status'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export function DashboardOverview() {
-  const { data, error, isLoading, mutate } = useSWR<DashboardData & { _cache?: any }>('/api/github/dashboard', fetcher, {
+  const { data, error, isLoading } = useSWR<DashboardData & { _cache?: any }>('/api/github/dashboard', fetcher, {
     refreshInterval: 0, // Disable automatic refresh - we'll handle it manually
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     dedupingInterval: 300000, // Dedupe requests within 5 minutes
   })
-
-  const handleRefresh = () => {
-    mutate() // Trigger SWR to refetch data
-  }
 
   if (isLoading) {
     return (
@@ -98,14 +93,6 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      {/* Refresh Status */}
-      <div className="flex justify-end">
-        <RefreshStatus 
-          cacheInfo={data._cache}
-          onRefresh={handleRefresh}
-        />
-      </div>
-
       {/* Repository Info */}
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-heading">{repository.full_name}</h2>
