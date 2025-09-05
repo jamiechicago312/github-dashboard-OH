@@ -12,8 +12,11 @@ export function Header() {
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center space-x-4">
           <Link href="/" className="flex items-center space-x-3">
-            <OpenHandsLogo className="h-7 w-7 text-primary" size={28} />
-            <span className="text-lg font-semibold">OpenHands Dashboard</span>
+            <div className="flex items-center space-x-1">
+              <OpenHandsLogo className="h-7 w-7 text-primary" size={28} />
+              <span className="text-lg">🙌</span>
+            </div>
+            <span className="font-brand text-lg">OpenHands Dashboard</span>
           </Link>
         </div>
 
