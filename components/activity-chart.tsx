@@ -21,7 +21,7 @@ export function ActivityChart() {
   if (error) {
     return (
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="font-semibold mb-4 flex items-center space-x-2">
+        <h3 className="font-heading font-semibold mb-4 flex items-center space-x-2">
           <BarChart3 className="h-5 w-5" />
           <span>Activity Overview</span>
         </h3>
@@ -64,7 +64,7 @@ export function ActivityChart() {
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="font-semibold flex items-center space-x-2">
+        <h3 className="font-heading font-semibold flex items-center space-x-2">
           <BarChart3 className="h-5 w-5" />
           <span>Activity Overview</span>
         </h3>
