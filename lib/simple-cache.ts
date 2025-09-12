@@ -16,6 +16,26 @@ import path from 'path'
 const CACHE_FILE = path.join(process.cwd(), '.cache', 'dashboard-data.json')
 const REFRESH_INTERVAL = 60 * 60 * 1000 // 1 hour in milliseconds
 
+/**
+ * Get the next top of hour in UTC
+ */
+function getNextTopOfHourUTC(): Date {
+  const now = new Date()
+  const nextHour = new Date(now)
+  nextHour.setUTCHours(now.getUTCHours() + 1, 0, 0, 0) // Next hour, 0 minutes, 0 seconds, 0 milliseconds
+  return nextHour
+}
+
+/**
+ * Get the last top of hour in UTC
+ */
+function getLastTopOfHourUTC(): Date {
+  const now = new Date()
+  const lastHour = new Date(now)
+  lastHour.setUTCHours(now.getUTCHours(), 0, 0, 0) // Current hour, 0 minutes, 0 seconds, 0 milliseconds
+  return lastHour
+}
+
 // Ensure cache directory exists
 async function ensureCacheDir() {
   const cacheDir = path.dirname(CACHE_FILE)
@@ -28,7 +48,7 @@ async function ensureCacheDir() {
 
 export class SimpleCache {
   /**
-   * Get cached data if it exists and is less than 1 hour old
+   * Get cached data if it exists and was refreshed in the current hour (UTC)
    */
   static async get<T>(): Promise<T | null> {
     try {
@@ -36,14 +56,18 @@ export class SimpleCache {
       const fileContent = await fs.readFile(CACHE_FILE, 'utf-8')
       const cached: CachedData<T> = JSON.parse(fileContent)
       
-      const now = Date.now()
-      const timeSinceRefresh = now - cached.lastRefresh
+      const now = new Date()
+      const lastTopOfHour = getLastTopOfHourUTC()
+      const refreshTime = new Date(cached.lastRefresh)
       
-      if (timeSinceRefresh < REFRESH_INTERVAL) {
+      // Check if data was refreshed in the current hour (after the last top of hour)
+      if (refreshTime >= lastTopOfHour) {
+        const timeSinceRefresh = now.getTime() - cached.lastRefresh
         console.log(`Cache hit: Data is ${Math.round(timeSinceRefresh / 1000 / 60)} minutes old`)
         return cached.data
       } else {
-        console.log(`Cache expired: Data is ${Math.round(timeSinceRefresh / 1000 / 60)} minutes old`)
+        const timeSinceRefresh = now.getTime() - cached.lastRefresh
+        console.log(`Cache expired: Data is ${Math.round(timeSinceRefresh / 1000 / 60)} minutes old (from previous hour)`)
         return null
       }
     } catch (error) {
@@ -70,30 +94,33 @@ export class SimpleCache {
   }
 
   /**
-   * Get time until next refresh is allowed
+   * Get time until next refresh is allowed (next top of hour UTC)
    */
   static async getTimeUntilNextRefresh(): Promise<number> {
+    const now = new Date()
+    const nextTopOfHour = getNextTopOfHourUTC()
+    return nextTopOfHour.getTime() - now.getTime()
+  }
+
+  /**
+   * Check if refresh is allowed (we're at or past the top of a new hour UTC)
+   */
+  static async canRefresh(): Promise<boolean> {
     try {
       await ensureCacheDir()
       const fileContent = await fs.readFile(CACHE_FILE, 'utf-8')
       const cached: CachedData<any> = JSON.parse(fileContent)
       
-      const now = Date.now()
-      const timeSinceRefresh = now - cached.lastRefresh
-      const timeUntilNext = REFRESH_INTERVAL - timeSinceRefresh
+      const now = new Date()
+      const lastTopOfHour = getLastTopOfHourUTC()
+      const refreshTime = new Date(cached.lastRefresh)
       
-      return Math.max(0, timeUntilNext)
+      // Can refresh if we haven't refreshed in the current hour yet
+      return refreshTime < lastTopOfHour
     } catch (error) {
-      return 0 // No cache, can refresh immediately
+      // No cache file, can refresh immediately
+      return true
     }
-  }
-
-  /**
-   * Check if refresh is allowed (more than 1 hour since last refresh)
-   */
-  static async canRefresh(): Promise<boolean> {
-    const timeUntilNext = await this.getTimeUntilNextRefresh()
-    return timeUntilNext === 0
   }
 
   /**
@@ -112,12 +139,14 @@ export class SimpleCache {
       const cached: CachedData<any> = JSON.parse(fileContent)
       
       const timeUntilNext = await this.getTimeUntilNextRefresh()
+      const canRefresh = await this.canRefresh()
+      const nextTopOfHour = getNextTopOfHourUTC()
       
       return {
         hasCache: true,
         lastRefresh: new Date(cached.lastRefresh),
-        nextRefreshAvailable: timeUntilNext > 0 ? new Date(Date.now() + timeUntilNext) : new Date(),
-        canRefresh: timeUntilNext === 0,
+        nextRefreshAvailable: canRefresh ? new Date() : nextTopOfHour,
+        canRefresh,
         timeUntilNextRefresh: timeUntilNext
       }
     } catch (error) {
