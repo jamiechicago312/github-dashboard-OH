@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import { ThemeToggle } from './theme-toggle'
-import { OpenHandsLogo } from './openhands-logo'
+
 import { SimpleCountdown } from './simple-countdown'
 
 export function Header() {
@@ -13,7 +13,6 @@ export function Header() {
         <div className="flex items-center space-x-4">
           <Link href="/" className="flex items-center space-x-3">
             <div className="flex items-center space-x-1">
-              <OpenHandsLogo className="h-7 w-7 text-primary" size={28} />
               <span className="text-lg">🙌</span>
             </div>
             <span className="font-brand text-lg">OpenHands Dashboard</span>
