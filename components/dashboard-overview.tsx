@@ -47,6 +47,7 @@ export function DashboardOverview() {
     contributors,
     externalContributors,
     firstTimeContributors,
+    firstTimeContributorsCount,
     agentContributors,
     totalAgentContributions,
     orgStats
@@ -86,9 +87,9 @@ export function DashboardOverview() {
     },
     {
       title: 'First-Time Contributors',
-      value: formatNumber(firstTimeContributors.length),
+      value: formatNumber(firstTimeContributorsCount),
       icon: UserPlus,
-      description: 'New contributors',
+      description: 'New contributors to last release',
     },
   ]
 

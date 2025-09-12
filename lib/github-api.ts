@@ -233,6 +233,90 @@ export class GitHubAPI {
   }
 
   /**
+   * Extract new contributors from the latest release notes
+   */
+  static async getNewContributorsFromLatestRelease(
+    owner: string,
+    repo: string
+  ): Promise<GitHubContributor[]> {
+    try {
+      // Get the latest release
+      const releases = await this.getRepositoryReleases(owner, repo, 1, 1)
+      
+      if (!releases || releases.length === 0) {
+        console.log('No releases found')
+        return []
+      }
+
+      const latestRelease = releases[0]
+      const releaseBody = latestRelease.body || ''
+      
+      console.log(`Parsing release ${latestRelease.tag_name} for new contributors`)
+
+      // Extract new contributors section from release notes
+      const newContributorsMatch = releaseBody.match(/## New Contributors\s*([\s\S]*?)(?=\n##|\*\*Full Changelog\*\*|$)/i)
+      
+      if (!newContributorsMatch) {
+        console.log('No "New Contributors" section found in latest release')
+        return []
+      }
+
+      const newContributorsSection = newContributorsMatch[1]
+      
+      // Extract usernames from lines like "* @username made their first contribution in https://github.com/..."
+      const usernameMatches = newContributorsSection.match(/@([a-zA-Z0-9_-]+)/g)
+      
+      if (!usernameMatches) {
+        console.log('No contributor usernames found in release notes')
+        return []
+      }
+
+      // Remove @ symbol and get unique usernames
+      const usernames = Array.from(new Set(usernameMatches.map(match => match.substring(1))))
+      
+      console.log(`Found ${usernames.length} new contributors in latest release: ${usernames.join(', ')}`)
+
+      // Get detailed information for each contributor
+      const contributorDetails = await Promise.allSettled(
+        usernames.map(async (username) => {
+          try {
+            const user = await this.getUser(username)
+            // Create a contributor object with the user data
+            return {
+              id: user.id,
+              login: user.login,
+              avatar_url: user.avatar_url,
+              html_url: user.html_url,
+              contributions: 1, // New contributors typically have 1 contribution when first recognized
+              type: user.type === 'Organization' ? 'Bot' : 'User',
+              name: user.name,
+              company: user.company,
+              location: user.location,
+            } as GitHubContributor
+          } catch (error) {
+            console.error(`Failed to fetch details for contributor ${username}:`, error)
+            return null
+          }
+        })
+      )
+
+      // Filter out failed requests and return successful ones
+      const validContributors = contributorDetails
+        .filter((result): result is PromiseFulfilledResult<GitHubContributor> => 
+          result.status === 'fulfilled' && result.value !== null
+        )
+        .map(result => result.value)
+
+      console.log(`Successfully fetched details for ${validContributors.length} new contributors`)
+      
+      return validContributors
+    } catch (error) {
+      console.error('Error extracting new contributors from latest release:', error)
+      return []
+    }
+  }
+
+  /**
    * Get the most recent first-time contributors chronologically
    * This identifies contributors with exactly 1 contribution and sorts them by most recent activity
    */

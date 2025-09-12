@@ -183,6 +183,7 @@ export interface DashboardData {
   contributors: GitHubContributor[]
   externalContributors: GitHubContributor[]
   firstTimeContributors: GitHubContributor[]
+  firstTimeContributorsCount: number // Count from latest release
   agentContributors: GitHubContributor[]
   totalAgentContributions: number
   recentCommits: GitHubCommit[]

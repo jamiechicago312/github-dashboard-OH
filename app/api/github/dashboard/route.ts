@@ -70,9 +70,13 @@ export async function GET(request: Request) {
 
     const detailedExternalContributors = await GitHubAPI.getContributorDetails(topExternalContributors)
 
-    // Get the most recent 20 first-time contributors chronologically
+    // Get new contributors from latest release (for the count)
+    const newContributorsFromRelease = await GitHubAPI.getNewContributorsFromLatestRelease(OWNER, REPO)
+    
+    // Get the most recent 20 first-time contributors chronologically (for display)
     const recentFirstTimeContributors = await GitHubAPI.getRecentFirstTimeContributors(OWNER, REPO, 20)
 
+    console.log(`Found ${newContributorsFromRelease.length} new contributors from latest release`)
     console.log(`Found ${recentFirstTimeContributors.length} recent first-time contributors`)
 
     // Mark external contributors
@@ -115,6 +119,7 @@ export async function GET(request: Request) {
       contributors: allContributorsWithFlags,
       externalContributors: detailedExternalContributors,
       firstTimeContributors: recentFirstTimeContributors,
+      firstTimeContributorsCount: newContributorsFromRelease.length, // Count from latest release
       agentContributors,
       totalAgentContributions,
       recentCommits,
