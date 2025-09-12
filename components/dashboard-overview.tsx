@@ -136,7 +136,7 @@ export function DashboardOverview() {
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
           <div className="flex items-center space-x-2 mb-4">
             <UserPlus className="h-5 w-5 text-green-500" />
-            <h3 className="font-heading font-semibold">New Contributors (Latest Release)</h3>
+            <h3 className="font-heading font-semibold">Recent First-Time Contributors</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {firstTimeContributors.slice(0, 20).map((contributor) => (
@@ -166,12 +166,12 @@ export function DashboardOverview() {
           </div>
           {firstTimeContributors.length > 20 && (
             <p className="text-sm text-muted-foreground mt-4 text-center">
-              And {firstTimeContributors.length - 20} more new contributors...
+              And {firstTimeContributors.length - 20} more first-time contributors...
             </p>
           )}
           {firstTimeContributors.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No new contributors found in the latest release.
+              No recent first-time contributors found.
             </p>
           )}
         </div>
