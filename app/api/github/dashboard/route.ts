@@ -70,14 +70,10 @@ export async function GET(request: Request) {
 
     const detailedExternalContributors = await GitHubAPI.getContributorDetails(topExternalContributors)
 
-    // Get first-time contributors (contributors with only 1 contribution, sorted by most recent)
-    const firstTimeContributors = contributors
-      .filter(contributor => contributor.contributions === 1)
-      .slice(0, 20) // GitHub API returns contributors sorted by recent activity for single contributions
+    // Get new contributors from the latest release (officially recognized by OpenHands)
+    const newContributorsFromRelease = await GitHubAPI.getNewContributorsFromLatestRelease(OWNER, REPO)
 
-    const detailedFirstTimeContributors = await GitHubAPI.getContributorDetails(firstTimeContributors)
-
-    console.log(`Found ${firstTimeContributors.length} first-time contributors`)
+    console.log(`Found ${newContributorsFromRelease.length} new contributors from latest release`)
 
     // Mark external contributors
     const allContributorsWithFlags = contributors.map(contributor => ({
@@ -118,7 +114,7 @@ export async function GET(request: Request) {
       organization,
       contributors: allContributorsWithFlags,
       externalContributors: detailedExternalContributors,
-      firstTimeContributors: detailedFirstTimeContributors,
+      firstTimeContributors: newContributorsFromRelease,
       agentContributors,
       totalAgentContributions,
       recentCommits,
