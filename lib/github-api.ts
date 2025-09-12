@@ -233,6 +233,64 @@ export class GitHubAPI {
   }
 
   /**
+   * Get the most recent first-time contributors chronologically
+   * This identifies contributors with exactly 1 contribution and sorts them by most recent activity
+   */
+  static async getRecentFirstTimeContributors(
+    owner: string,
+    repo: string,
+    limit = 20
+  ): Promise<GitHubContributor[]> {
+    try {
+      console.log('Getting recent first-time contributors...')
+      
+      // Get all contributors
+      const allContributors = await this.getAllRepositoryContributors(owner, repo, 20)
+      
+      // Filter to only first-time contributors (exactly 1 contribution)
+      const firstTimeContributors = allContributors.filter(contributor => contributor.contributions === 1)
+      
+      console.log(`Found ${firstTimeContributors.length} first-time contributors`)
+      
+      if (firstTimeContributors.length === 0) {
+        return []
+      }
+
+      // Get recent commits to find the most recent activity for each first-time contributor
+      const recentCommits = await this.getRepositoryCommits(owner, repo, undefined, 1, 100) // Get last 100 commits
+      
+      // Create a map of contributor login to their most recent commit date
+      const contributorLastCommitMap = new Map<string, string>()
+      
+      for (const commit of recentCommits) {
+        const authorLogin = commit.author?.login
+        if (authorLogin && !contributorLastCommitMap.has(authorLogin)) {
+          contributorLastCommitMap.set(authorLogin, commit.commit.author.date)
+        }
+      }
+      
+      // Add commit dates to first-time contributors and sort by most recent
+      const contributorsWithDates = firstTimeContributors
+        .map(contributor => ({
+          ...contributor,
+          lastCommitDate: contributorLastCommitMap.get(contributor.login) || '1970-01-01T00:00:00Z'
+        }))
+        .sort((a, b) => new Date(b.lastCommitDate).getTime() - new Date(a.lastCommitDate).getTime())
+        .slice(0, limit)
+      
+      // Remove the temporary lastCommitDate property
+      const result = contributorsWithDates.map(({ lastCommitDate, ...contributor }) => contributor)
+      
+      console.log(`Returning ${result.length} most recent first-time contributors`)
+      
+      return result
+    } catch (error) {
+      console.error('Error getting recent first-time contributors:', error)
+      return []
+    }
+  }
+
+  /**
    * Calculate repository statistics
    */
   static async calculateRepositoryStats(owner: string, repo: string): Promise<RepositoryStats> {

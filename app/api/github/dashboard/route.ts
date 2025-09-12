@@ -70,14 +70,10 @@ export async function GET(request: Request) {
 
     const detailedExternalContributors = await GitHubAPI.getContributorDetails(topExternalContributors)
 
-    // Get first-time contributors (contributors with only 1 contribution, sorted by most recent)
-    const firstTimeContributors = contributors
-      .filter(contributor => contributor.contributions === 1)
-      .slice(0, 20) // GitHub API returns contributors sorted by recent activity for single contributions
+    // Get the most recent 20 first-time contributors chronologically
+    const recentFirstTimeContributors = await GitHubAPI.getRecentFirstTimeContributors(OWNER, REPO, 20)
 
-    const detailedFirstTimeContributors = await GitHubAPI.getContributorDetails(firstTimeContributors)
-
-    console.log(`Found ${firstTimeContributors.length} first-time contributors`)
+    console.log(`Found ${recentFirstTimeContributors.length} recent first-time contributors`)
 
     // Mark external contributors
     const allContributorsWithFlags = contributors.map(contributor => ({
@@ -118,7 +114,7 @@ export async function GET(request: Request) {
       organization,
       contributors: allContributorsWithFlags,
       externalContributors: detailedExternalContributors,
-      firstTimeContributors: detailedFirstTimeContributors,
+      firstTimeContributors: recentFirstTimeContributors,
       agentContributors,
       totalAgentContributions,
       recentCommits,
