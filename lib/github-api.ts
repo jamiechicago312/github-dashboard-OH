@@ -180,6 +180,46 @@ export class GitHubAPI {
   }
 
   /**
+   * Get commit counts for different time periods
+   */
+  static async getCommitCounts(
+    owner: string,
+    repo: string
+  ): Promise<{ 
+    last24Hours: number; 
+    last7Days: number; 
+    last30Days: number; 
+    allTime: number 
+  }> {
+    try {
+      const now = new Date()
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+      const [commits24h, commits7d, commits30d] = await Promise.all([
+        this.getRepositoryCommits(owner, repo, oneDayAgo.toISOString(), 1, 100),
+        this.getRepositoryCommits(owner, repo, sevenDaysAgo.toISOString(), 1, 100),
+        this.getRepositoryCommits(owner, repo, thirtyDaysAgo.toISOString(), 1, 100)
+      ])
+
+      // For all-time count, we'll use the repository stats or a reasonable approximation
+      // GitHub doesn't provide an easy way to get total commit count via API
+      const allTimeCommits = await this.getRepositoryCommits(owner, repo, undefined, 1, 100)
+
+      return {
+        last24Hours: commits24h.length,
+        last7Days: commits7d.length,
+        last30Days: commits30d.length,
+        allTime: allTimeCommits.length >= 100 ? 100 : allTimeCommits.length // Limited approximation
+      }
+    } catch (error) {
+      console.error('Error getting commit counts:', error)
+      return { last24Hours: 0, last7Days: 0, last30Days: 0, allTime: 0 }
+    }
+  }
+
+  /**
    * Get repository pull requests
    */
   static async getRepositoryPullRequests(
@@ -196,6 +236,39 @@ export class GitHubAPI {
       sort: 'updated',
       direction: 'desc'
     })
+  }
+
+  /**
+   * Get pull request counts by state using search API for accurate counts
+   */
+  static async getPullRequestCounts(
+    owner: string,
+    repo: string
+  ): Promise<{ open: number; closed: number; total: number }> {
+    try {
+      const [openResult, closedResult] = await Promise.all([
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr state:open`,
+          per_page: 1
+        }),
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr state:closed`,
+          per_page: 1
+        })
+      ])
+
+      const openCount = openResult.total_count || 0
+      const closedCount = closedResult.total_count || 0
+
+      return {
+        open: openCount,
+        closed: closedCount,
+        total: openCount + closedCount
+      }
+    } catch (error) {
+      console.error('Error getting PR counts:', error)
+      return { open: 0, closed: 0, total: 0 }
+    }
   }
 
   /**
@@ -230,6 +303,17 @@ export class GitHubAPI {
       page,
       per_page: perPage
     })
+  }
+
+  /**
+   * Get all repository releases (for total count)
+   */
+  static async getAllRepositoryReleases(
+    owner: string,
+    repo: string,
+    maxPages = 20
+  ): Promise<GitHubRelease[]> {
+    return fetchAllPages<GitHubRelease>(`/repos/${owner}/${repo}/releases`, {}, maxPages)
   }
 
   /**
