@@ -177,6 +177,21 @@ export interface OrganizationStats {
   }>
 }
 
+export interface MetricsCounts {
+  commits: {
+    last24Hours: number
+    last7Days: number
+    last30Days: number
+    allTime: number
+  }
+  pullRequests: {
+    open: number
+    closed: number
+    total: number
+  }
+  totalReleases: number
+}
+
 export interface DashboardData {
   repository: GitHubRepository
   organization: GitHubUser
@@ -193,4 +208,5 @@ export interface DashboardData {
   stats: RepositoryStats
   orgStats: OrganizationStats
   contributionStats: ContributionStats
+  metricsCounts: MetricsCounts
 }

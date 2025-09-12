@@ -92,11 +92,14 @@ export async function GET(request: Request) {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const [recentCommits, recentPullRequests, recentIssues, releases] = await Promise.all([
+    const [recentCommits, recentPullRequests, recentIssues, releases, commitCounts, prCounts, allReleases] = await Promise.all([
       GitHubAPI.getRepositoryCommits(OWNER, REPO, thirtyDaysAgo.toISOString(), 1, 20),
       GitHubAPI.getRepositoryPullRequests(OWNER, REPO, 'all', 1, 20),
       GitHubAPI.getRepositoryIssues(OWNER, REPO, 'all', 1, 20),
       GitHubAPI.getRepositoryReleases(OWNER, REPO, 1, 10),
+      GitHubAPI.getCommitCounts(OWNER, REPO),
+      GitHubAPI.getPullRequestCounts(OWNER, REPO),
+      GitHubAPI.getAllRepositoryReleases(OWNER, REPO),
     ])
 
     console.log('Calculating statistics...')
@@ -129,6 +132,11 @@ export async function GET(request: Request) {
       stats,
       orgStats,
       contributionStats,
+      metricsCounts: {
+        commits: commitCounts,
+        pullRequests: prCounts,
+        totalReleases: allReleases.length,
+      },
     }
 
     console.log('Dashboard data prepared successfully')
