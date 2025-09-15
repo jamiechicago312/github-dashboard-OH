@@ -49,6 +49,12 @@ logs
 # Cache
 .cache/
 
+# Database files (SQLite)
+data/
+*.db
+*.db-shm
+*.db-wal
+
 # Python (legacy from boilerplate)
 __pycache__/
 *.py[cod]
