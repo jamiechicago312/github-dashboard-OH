@@ -60,42 +60,42 @@ export default function GranularActivityOverview() {
   const metrics: ActivityMetric[] = [
     {
       label: 'Commits',
-      value: timeBasedMetrics.commits,
+      value: timeBasedMetrics.commits.length,
       icon: GitCommit,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
       label: 'Open Issues',
-      value: timeBasedMetrics.open_issues,
+      value: timeBasedMetrics.stats.issues.open,
       icon: Bug,
       color: 'text-red-600',
       bgColor: 'bg-red-50'
     },
     {
       label: 'Closed Issues',
-      value: timeBasedMetrics.closed_issues,
+      value: timeBasedMetrics.stats.issues.closed,
       icon: Bug,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
       label: 'Open PRs',
-      value: timeBasedMetrics.open_prs,
+      value: timeBasedMetrics.stats.pullRequests.open,
       icon: GitPullRequest,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
     },
     {
       label: 'Closed PRs',
-      value: timeBasedMetrics.closed_prs,
+      value: timeBasedMetrics.stats.pullRequests.closed,
       icon: GitPullRequest,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50'
     },
     {
       label: 'Releases',
-      value: timeBasedMetrics.releases,
+      value: timeBasedMetrics.releases.length,
       icon: Package,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
@@ -187,32 +187,32 @@ export default function GranularActivityOverview() {
           <div className="text-center p-3 bg-muted/30 rounded-lg">
             <p className="text-muted-foreground">Issues Activity</p>
             <p className="font-semibold text-lg">
-              {(timeBasedMetrics.open_issues + timeBasedMetrics.closed_issues).toLocaleString()}
+              {(timeBasedMetrics.stats.issues.open + timeBasedMetrics.stats.issues.closed).toLocaleString()}
             </p>
             <p className="text-xs text-muted-foreground">
-              {timeBasedMetrics.open_issues} open, {timeBasedMetrics.closed_issues} closed
+              {timeBasedMetrics.stats.issues.open} open, {timeBasedMetrics.stats.issues.closed} closed
             </p>
           </div>
           
           <div className="text-center p-3 bg-muted/30 rounded-lg">
             <p className="text-muted-foreground">PR Activity</p>
             <p className="font-semibold text-lg">
-              {(timeBasedMetrics.open_prs + timeBasedMetrics.closed_prs).toLocaleString()}
+              {(timeBasedMetrics.stats.pullRequests.open + timeBasedMetrics.stats.pullRequests.closed).toLocaleString()}
             </p>
             <p className="text-xs text-muted-foreground">
-              {timeBasedMetrics.open_prs} open, {timeBasedMetrics.closed_prs} closed
+              {timeBasedMetrics.stats.pullRequests.open} open, {timeBasedMetrics.stats.pullRequests.closed} closed
             </p>
           </div>
           
           <div className="text-center p-3 bg-muted/30 rounded-lg">
             <p className="text-muted-foreground">Development</p>
-            <p className="font-semibold text-lg">{timeBasedMetrics.commits.toLocaleString()}</p>
+            <p className="font-semibold text-lg">{timeBasedMetrics.commits.length.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">commits</p>
           </div>
           
           <div className="text-center p-3 bg-muted/30 rounded-lg">
             <p className="text-muted-foreground">Releases</p>
-            <p className="font-semibold text-lg">{timeBasedMetrics.releases.toLocaleString()}</p>
+            <p className="font-semibold text-lg">{timeBasedMetrics.releases.length.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">published</p>
           </div>
         </div>

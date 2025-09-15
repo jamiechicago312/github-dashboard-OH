@@ -28,7 +28,7 @@ export class MetricsCollector {
     try {
       // Fetch current repository data
       const [repoInfo, contributors, issues, pullRequests, releases] = await Promise.all([
-        GitHubAPI.getRepositoryInfo(OWNER, REPO),
+        GitHubAPI.getRepository(OWNER, REPO),
         GitHubAPI.getAllRepositoryContributors(OWNER, REPO),
         GitHubAPI.getRepositoryIssues(OWNER, REPO, 'all', 100),
         GitHubAPI.getRepositoryPullRequests(OWNER, REPO, 'all', 100),
@@ -36,8 +36,8 @@ export class MetricsCollector {
       ])
 
       // Count metrics
-      const openIssues = issues.filter(issue => issue.state === 'open' && !issue.pull_request).length
-      const closedIssues = issues.filter(issue => issue.state === 'closed' && !issue.pull_request).length
+      const openIssues = issues.filter(issue => issue.state === 'open').length
+      const closedIssues = issues.filter(issue => issue.state === 'closed').length
       const openPRs = pullRequests.filter(pr => pr.state === 'open').length
       const closedPRs = pullRequests.filter(pr => pr.state === 'closed').length
       const mergedPRs = pullRequests.filter(pr => pr.merged_at).length
@@ -111,13 +111,6 @@ export class MetricsCollector {
   }
 
   /**
-   * Get the latest metrics record
-   */
-  getLatestMetrics(): RepositoryMetricsRecord | null {
-    return this.db.getLatestMetrics()
-  }
-
-  /**
    * Get historical trend data for the dashboard
    */
   getHistoricalTrends(days: number = 30) {
@@ -127,13 +120,13 @@ export class MetricsCollector {
   /**
    * Clean up old metrics data (keep last N days)
    */
-  cleanupOldMetrics(retentionDays: number = 365): number {
+  cleanupOldMetrics(retentionDays: number = 365): void {
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays)
     const cutoffDateStr = cutoffDate.toISOString().split('T')[0]
 
     console.log(`🧹 Cleaning up metrics older than ${cutoffDateStr}...`)
-    return this.db.cleanupOldMetrics(cutoffDateStr)
+    this.db.cleanupOldMetrics()
   }
 }
 
