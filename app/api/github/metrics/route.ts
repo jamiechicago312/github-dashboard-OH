@@ -6,7 +6,7 @@ const OWNER = 'All-Hands-AI'
 const REPO = 'OpenHands'
 
 // Define time range options
-export const TIME_RANGES: TimeRangeOption[] = [
+const TIME_RANGES: TimeRangeOption[] = [
   { label: 'All Time', value: 'all-time' },
   { label: '1 Year', value: '1-year', days: 365 },
   { label: '6 Months', value: '6-months', days: 180 },

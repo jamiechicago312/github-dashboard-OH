@@ -57,7 +57,7 @@ export interface RepositoryMetricsRecord {
 
 export interface TimeRangeMetrics {
   current: RepositoryMetricsRecord
-  previous?: RepositoryMetricsRecord
+  previous?: RepositoryMetricsRecord | null
   change?: {
     stars: number
     forks: number

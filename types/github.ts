@@ -192,6 +192,36 @@ export interface MetricsCounts {
   totalReleases: number
 }
 
+export interface TimeRangeOption {
+  label: string
+  value: string
+  days?: number
+}
+
+export interface TimeBasedMetrics {
+  timeRange: TimeRangeOption
+  stats: RepositoryStats
+  commits: GitHubCommit[]
+  pullRequests: GitHubPullRequest[]
+  issues: GitHubIssue[]
+  releases: GitHubRelease[]
+}
+
+export interface TimeRangeOption {
+  label: string
+  value: string
+  days?: number
+}
+
+export interface TimeBasedMetrics {
+  timeRange: TimeRangeOption
+  stats: RepositoryStats
+  commits: GitHubCommit[]
+  pullRequests: GitHubPullRequest[]
+  issues: GitHubIssue[]
+  releases: GitHubRelease[]
+}
+
 export interface DashboardData {
   repository: GitHubRepository
   organization: GitHubUser
