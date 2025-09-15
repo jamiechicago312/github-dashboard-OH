@@ -180,6 +180,46 @@ export class GitHubAPI {
   }
 
   /**
+   * Get commit counts for different time periods
+   */
+  static async getCommitCounts(
+    owner: string,
+    repo: string
+  ): Promise<{ 
+    last24Hours: number; 
+    last7Days: number; 
+    last30Days: number; 
+    allTime: number 
+  }> {
+    try {
+      const now = new Date()
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+      const [commits24h, commits7d, commits30d] = await Promise.all([
+        this.getRepositoryCommits(owner, repo, oneDayAgo.toISOString(), 1, 100),
+        this.getRepositoryCommits(owner, repo, sevenDaysAgo.toISOString(), 1, 100),
+        this.getRepositoryCommits(owner, repo, thirtyDaysAgo.toISOString(), 1, 100)
+      ])
+
+      // For all-time count, we'll use the repository stats or a reasonable approximation
+      // GitHub doesn't provide an easy way to get total commit count via API
+      const allTimeCommits = await this.getRepositoryCommits(owner, repo, undefined, 1, 100)
+
+      return {
+        last24Hours: commits24h.length,
+        last7Days: commits7d.length,
+        last30Days: commits30d.length,
+        allTime: allTimeCommits.length >= 100 ? 100 : allTimeCommits.length // Limited approximation
+      }
+    } catch (error) {
+      console.error('Error getting commit counts:', error)
+      return { last24Hours: 0, last7Days: 0, last30Days: 0, allTime: 0 }
+    }
+  }
+
+  /**
    * Get repository pull requests
    */
   static async getRepositoryPullRequests(
@@ -196,6 +236,39 @@ export class GitHubAPI {
       sort: 'updated',
       direction: 'desc'
     })
+  }
+
+  /**
+   * Get pull request counts by state using search API for accurate counts
+   */
+  static async getPullRequestCounts(
+    owner: string,
+    repo: string
+  ): Promise<{ open: number; closed: number; total: number }> {
+    try {
+      const [openResult, closedResult] = await Promise.all([
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr state:open`,
+          per_page: 1
+        }),
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr state:closed`,
+          per_page: 1
+        })
+      ])
+
+      const openCount = openResult.total_count || 0
+      const closedCount = closedResult.total_count || 0
+
+      return {
+        open: openCount,
+        closed: closedCount,
+        total: openCount + closedCount
+      }
+    } catch (error) {
+      console.error('Error getting PR counts:', error)
+      return { open: 0, closed: 0, total: 0 }
+    }
   }
 
   /**
@@ -230,6 +303,159 @@ export class GitHubAPI {
       page,
       per_page: perPage
     })
+  }
+
+  /**
+   * Get all repository releases (for total count)
+   */
+  static async getAllRepositoryReleases(
+    owner: string,
+    repo: string,
+    maxPages = 20
+  ): Promise<GitHubRelease[]> {
+    return fetchAllPages<GitHubRelease>(`/repos/${owner}/${repo}/releases`, {}, maxPages)
+  }
+
+  /**
+   * Extract new contributors from the latest release notes
+   */
+  static async getNewContributorsFromLatestRelease(
+    owner: string,
+    repo: string
+  ): Promise<GitHubContributor[]> {
+    try {
+      // Get the latest release
+      const releases = await this.getRepositoryReleases(owner, repo, 1, 1)
+      
+      if (!releases || releases.length === 0) {
+        console.log('No releases found')
+        return []
+      }
+
+      const latestRelease = releases[0]
+      const releaseBody = latestRelease.body || ''
+      
+      console.log(`Parsing release ${latestRelease.tag_name} for new contributors`)
+
+      // Extract new contributors section from release notes
+      const newContributorsMatch = releaseBody.match(/## New Contributors\s*([\s\S]*?)(?=\n##|\*\*Full Changelog\*\*|$)/i)
+      
+      if (!newContributorsMatch) {
+        console.log('No "New Contributors" section found in latest release')
+        return []
+      }
+
+      const newContributorsSection = newContributorsMatch[1]
+      
+      // Extract usernames from lines like "* @username made their first contribution in https://github.com/..."
+      const usernameMatches = newContributorsSection.match(/@([a-zA-Z0-9_-]+)/g)
+      
+      if (!usernameMatches) {
+        console.log('No contributor usernames found in release notes')
+        return []
+      }
+
+      // Remove @ symbol and get unique usernames
+      const usernames = Array.from(new Set(usernameMatches.map(match => match.substring(1))))
+      
+      console.log(`Found ${usernames.length} new contributors in latest release: ${usernames.join(', ')}`)
+
+      // Get detailed information for each contributor
+      const contributorDetails = await Promise.allSettled(
+        usernames.map(async (username) => {
+          try {
+            const user = await this.getUser(username)
+            // Create a contributor object with the user data
+            return {
+              id: user.id,
+              login: user.login,
+              avatar_url: user.avatar_url,
+              html_url: user.html_url,
+              contributions: 1, // New contributors typically have 1 contribution when first recognized
+              type: user.type === 'Organization' ? 'Bot' : 'User',
+              name: user.name,
+              company: user.company,
+              location: user.location,
+            } as GitHubContributor
+          } catch (error) {
+            console.error(`Failed to fetch details for contributor ${username}:`, error)
+            return null
+          }
+        })
+      )
+
+      // Filter out failed requests and return successful ones
+      const validContributors = contributorDetails
+        .filter((result): result is PromiseFulfilledResult<GitHubContributor> => 
+          result.status === 'fulfilled' && result.value !== null
+        )
+        .map(result => result.value)
+
+      console.log(`Successfully fetched details for ${validContributors.length} new contributors`)
+      
+      return validContributors
+    } catch (error) {
+      console.error('Error extracting new contributors from latest release:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get the most recent first-time contributors chronologically
+   * This identifies contributors with exactly 1 contribution and sorts them by most recent activity
+   */
+  static async getRecentFirstTimeContributors(
+    owner: string,
+    repo: string,
+    limit = 20
+  ): Promise<GitHubContributor[]> {
+    try {
+      console.log('Getting recent first-time contributors...')
+      
+      // Get all contributors
+      const allContributors = await this.getAllRepositoryContributors(owner, repo, 20)
+      
+      // Filter to only first-time contributors (exactly 1 contribution)
+      const firstTimeContributors = allContributors.filter(contributor => contributor.contributions === 1)
+      
+      console.log(`Found ${firstTimeContributors.length} first-time contributors`)
+      
+      if (firstTimeContributors.length === 0) {
+        return []
+      }
+
+      // Get recent commits to find the most recent activity for each first-time contributor
+      const recentCommits = await this.getRepositoryCommits(owner, repo, undefined, 1, 100) // Get last 100 commits
+      
+      // Create a map of contributor login to their most recent commit date
+      const contributorLastCommitMap = new Map<string, string>()
+      
+      for (const commit of recentCommits) {
+        const authorLogin = commit.author?.login
+        if (authorLogin && !contributorLastCommitMap.has(authorLogin)) {
+          contributorLastCommitMap.set(authorLogin, commit.commit.author.date)
+        }
+      }
+      
+      // Add commit dates to first-time contributors and sort by most recent
+      const contributorsWithDates = firstTimeContributors
+        .map(contributor => ({
+          ...contributor,
+          lastCommitDate: contributorLastCommitMap.get(contributor.login) || '1970-01-01T00:00:00Z'
+        }))
+        .sort((a, b) => new Date(b.lastCommitDate).getTime() - new Date(a.lastCommitDate).getTime())
+        .slice(0, limit)
+      
+      // Remove the temporary lastCommitDate property
+      const result = contributorsWithDates.map(({ lastCommitDate, ...contributor }) => contributor)
+      
+      console.log(`Returning ${result.length} most recent first-time contributors`)
+      
+      return result
+    } catch (error) {
+      console.error('Error getting recent first-time contributors:', error)
+      return []
+    }
   }
 
   /**

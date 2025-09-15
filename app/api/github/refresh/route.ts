@@ -9,10 +9,16 @@ export async function POST() {
       const status = await SimpleCache.getStatus()
       const timeUntilNext = status.timeUntilNextRefresh
       const minutes = Math.ceil(timeUntilNext / 1000 / 60)
+      const nextHour = status.nextRefreshAvailable?.toLocaleTimeString('en-US', { 
+        timeZone: 'UTC', 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
       
       return NextResponse.json({
         success: false,
-        message: `Only 1 refresh per hour permitted. Please wait ${minutes} more minutes.`,
+        message: `Data refreshes at the top of every hour (UTC). Next refresh available at ${nextHour} UTC (${minutes} minutes).`,
         nextRefreshAvailable: status.nextRefreshAvailable,
         timeUntilNextRefresh: timeUntilNext
       }, { status: 429 }) // Too Many Requests

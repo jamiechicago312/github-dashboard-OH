@@ -65,17 +65,17 @@ export async function GET(request: Request) {
 
     console.log(`Found ${agentContributors.length} OpenHands agent contributors with ${totalAgentContributions} total contributions`)
 
-    // Get detailed contributor information for top contributors
-    const detailedTopContributors = await GitHubAPI.getContributorDetails(topContributors)
+    // Get new contributors from latest release (for the count)
+    const newContributorsFromRelease = await GitHubAPI.getNewContributorsFromLatestRelease(OWNER, REPO)
+    
+    // Get the most recent 20 first-time contributors chronologically (for display)
+    const recentFirstTimeContributors = await GitHubAPI.getRecentFirstTimeContributors(OWNER, REPO, 20)
 
-    // Get first-time contributors (contributors with only 1 contribution, sorted by most recent)
-    const firstTimeContributors = contributors
-      .filter(contributor => contributor.contributions === 1)
-      .slice(0, 20) // GitHub API returns contributors sorted by recent activity for single contributions
+    console.log(`Found ${newContributorsFromRelease.length} new contributors from latest release`)
+    console.log(`Found ${recentFirstTimeContributors.length} recent first-time contributors`)
 
-    const detailedFirstTimeContributors = await GitHubAPI.getContributorDetails(firstTimeContributors)
-
-    console.log(`Found ${firstTimeContributors.length} first-time contributors`)
+    // Get detailed contributor information for external contributors (prioritizing main branch approach)
+    const detailedExternalContributors = await GitHubAPI.getContributorDetails(topContributors)
 
     // Mark external contributors
     const allContributorsWithFlags = contributors.map(contributor => ({
@@ -90,11 +90,14 @@ export async function GET(request: Request) {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const [recentCommits, recentPullRequests, recentIssues, releases] = await Promise.all([
+    const [recentCommits, recentPullRequests, recentIssues, releases, commitCounts, prCounts, allReleases] = await Promise.all([
       GitHubAPI.getRepositoryCommits(OWNER, REPO, thirtyDaysAgo.toISOString(), 1, 20),
       GitHubAPI.getRepositoryPullRequests(OWNER, REPO, 'all', 1, 20),
       GitHubAPI.getRepositoryIssues(OWNER, REPO, 'all', 1, 20),
       GitHubAPI.getRepositoryReleases(OWNER, REPO, 1, 10),
+      GitHubAPI.getCommitCounts(OWNER, REPO),
+      GitHubAPI.getPullRequestCounts(OWNER, REPO),
+      GitHubAPI.getAllRepositoryReleases(OWNER, REPO),
     ])
 
     console.log('Calculating statistics...')
@@ -115,9 +118,9 @@ export async function GET(request: Request) {
       repository,
       organization,
       contributors: allContributorsWithFlags,
-      topContributors: detailedTopContributors,
-      firstTimeContributors: detailedFirstTimeContributors,
-      maintainers,
+      externalContributors: detailedExternalContributors,
+      firstTimeContributors: recentFirstTimeContributors,
+      firstTimeContributorsCount: newContributorsFromRelease.length, // Count from latest release
       agentContributors,
       totalAgentContributions,
       recentCommits,
@@ -127,6 +130,11 @@ export async function GET(request: Request) {
       stats,
       orgStats,
       contributionStats,
+      metricsCounts: {
+        commits: commitCounts,
+        pullRequests: prCounts,
+        totalReleases: allReleases.length,
+      },
     }
 
     console.log('Dashboard data prepared successfully')
