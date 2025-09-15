@@ -4,8 +4,6 @@ import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import { ThemeToggle } from './theme-toggle'
 
-import { SimpleCountdown } from './simple-countdown'
-
 export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -20,7 +18,6 @@ export function Header() {
         </div>
 
         <nav className="flex items-center space-x-4">
-          <SimpleCountdown />
           <Link
             href="https://github.com/All-Hands-AI/OpenHands"
             target="_blank"
