@@ -5,6 +5,7 @@
 
 import { CronJob } from 'cron'
 import MetricsCollector from './metrics-collector'
+import DatabaseAdapter from './database-adapter'
 
 interface SchedulerConfig {
   // Collection intervals

@@ -1,16 +1,18 @@
 import { GitHubAPI } from './github-api'
-import MetricsDatabase, { RepositoryMetricsRecord } from './database'
+import { RepositoryMetricsRecord } from './database'
 import { GitHubRepository, GitHubContributor, GitHubIssue, GitHubPullRequest, GitHubRelease } from '@/types/github'
+import DatabaseAdapter, { DatabaseAdapter as DatabaseAdapterType } from './database-adapter'
 
 const OWNER = process.env.GITHUB_OWNER || 'All-Hands-AI'
 const REPO = process.env.GITHUB_REPO || 'OpenHands'
 
 export class MetricsCollector {
   private static instance: MetricsCollector
-  private db: typeof MetricsDatabase
+  private db: DatabaseAdapterType
 
   private constructor() {
-    this.db = MetricsDatabase
+    this.db = DatabaseAdapter
+    console.log(`📊 MetricsCollector initialized with database adapter`)
   }
 
   static getInstance(): MetricsCollector {
@@ -70,7 +72,7 @@ export class MetricsCollector {
       }
 
       // Store in database
-      this.db.storeMetrics(metrics)
+      await this.db.storeMetrics(metrics)
       
       console.log('✅ Metrics collected and stored successfully:', {
         date: metrics.date,
@@ -93,9 +95,9 @@ export class MetricsCollector {
   /**
    * Check if metrics have been collected today
    */
-  hasCollectedToday(): boolean {
+  async hasCollectedToday(): Promise<boolean> {
     const today = new Date().toISOString().split('T')[0]
-    const latest = this.db.getLatestMetrics()
+    const latest = await this.db.getLatestMetrics()
     return latest?.date === today
   }
 
@@ -103,9 +105,9 @@ export class MetricsCollector {
    * Collect metrics if not already collected today
    */
   async collectIfNeeded(): Promise<RepositoryMetricsRecord | null> {
-    if (this.hasCollectedToday()) {
+    if (await this.hasCollectedToday()) {
       console.log('📊 Metrics already collected today, skipping...')
-      return this.db.getLatestMetrics()
+      return await this.db.getLatestMetrics()
     }
 
     return await this.collectCurrentMetrics()
@@ -114,27 +116,27 @@ export class MetricsCollector {
   /**
    * Get the latest metrics record
    */
-  getLatestMetrics(): RepositoryMetricsRecord | null {
-    return this.db.getLatestMetrics()
+  async getLatestMetrics(): Promise<RepositoryMetricsRecord | null> {
+    return await this.db.getLatestMetrics()
   }
 
   /**
    * Get historical trend data for the dashboard
    */
-  getHistoricalTrends(days: number = 30) {
-    return this.db.getTimeRangeMetrics(days)
+  async getHistoricalTrends(days: number = 30) {
+    return await this.db.getTimeRangeMetrics(days)
   }
 
   /**
    * Clean up old metrics data (keep last N days)
    */
-  cleanupOldMetrics(retentionDays: number = 365): void {
+  async cleanupOldMetrics(retentionDays: number = 365): Promise<void> {
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays)
     const cutoffDateStr = cutoffDate.toISOString().split('T')[0]
 
     console.log(`🧹 Cleaning up metrics older than ${cutoffDateStr}...`)
-    this.db.cleanupOldMetrics()
+    await this.db.cleanupOldMetrics()
   }
 
   /**
@@ -228,13 +230,13 @@ export class MetricsCollector {
   /**
    * Get collection health status
    */
-  getHealthStatus(): {
+  async getHealthStatus(): Promise<{
     isHealthy: boolean
     lastCollection: Date | null
     errorCount: number
     message: string
-  } {
-    const latest = this.getLatestMetrics()
+  }> {
+    const latest = await this.getLatestMetrics()
     const now = new Date()
     
     if (!latest) {

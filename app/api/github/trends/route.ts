@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import MetricsDatabase from '@/lib/database'
+import DatabaseAdapter from '@/lib/database-adapter'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,10 +11,11 @@ interface TrendData {
 
 export async function GET(request: NextRequest) {
   try {
-    const db = MetricsDatabase
+    const db = DatabaseAdapter
     
     // Get current metrics (latest)
-    const latest = db.getLatestMetrics()
+    const latest = await db.getLatestMetrics()
+    
     if (!latest) {
       return NextResponse.json({
         success: false,
@@ -28,7 +29,8 @@ export async function GET(request: NextRequest) {
     
     // Get metrics from around 30 days ago using range query
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]
-    const historicalMetrics = db.getMetricsInRange(thirtyDaysAgoStr, thirtyDaysAgoStr)
+    const historicalMetrics = await db.getMetricsInRange(thirtyDaysAgoStr, thirtyDaysAgoStr)
+    
     const historical = historicalMetrics.length > 0 ? historicalMetrics[0] : null
     
     // If no historical data, use current as baseline
