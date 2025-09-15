@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { GitHubAPI } from '@/lib/github-api'
 import { TimeBasedMetrics, TimeRangeOption } from '@/types/github'
 
@@ -29,9 +29,9 @@ function getDateRange(timeRange: string): { since?: string; until?: string } {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = request.nextUrl
     const timeRange = searchParams.get('range') || 'all-time'
     
     console.log(`Fetching metrics for time range: ${timeRange}`)

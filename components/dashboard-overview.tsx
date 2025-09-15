@@ -1,12 +1,18 @@
 'use client'
 
 import useSWR from 'swr'
-import { Star, GitFork, Users, Activity, Bot, UserPlus } from 'lucide-react'
+import { Star, GitFork, Users, Activity, Bot, UserPlus, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { DashboardData } from '@/types/github'
 import { formatNumber } from '@/lib/utils'
 import { LoadingSpinner } from './loading-card'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+interface TrendData {
+  stars: { current: number; previous: number; change: number; changePercent: number }
+  forks: { current: number; previous: number; change: number; changePercent: number }
+  contributors: { current: number; previous: number; change: number; changePercent: number }
+}
 
 export function DashboardOverview() {
   const { data, error, isLoading } = useSWR<DashboardData & { _cache?: any }>('/api/github/dashboard', fetcher, {
@@ -14,6 +20,14 @@ export function DashboardOverview() {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     dedupingInterval: 300000, // Dedupe requests within 5 minutes
+  })
+
+  // Fetch trend data
+  const { data: trendsData } = useSWR<{ success: boolean; data: TrendData }>('/api/github/trends', fetcher, {
+    refreshInterval: 0,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 600000, // Dedupe requests within 10 minutes
   })
 
   if (isLoading) {
@@ -51,24 +65,53 @@ export function DashboardOverview() {
     orgStats
   } = data
 
+  // Helper function to get trend indicator
+  const getTrendIndicator = (change: number, changePercent: number) => {
+    if (change > 0) {
+      return {
+        icon: TrendingUp,
+        color: 'text-green-500',
+        text: `+${change} (+${changePercent.toFixed(1)}%)`
+      }
+    } else if (change < 0) {
+      return {
+        icon: TrendingDown,
+        color: 'text-red-500',
+        text: `${change} (${changePercent.toFixed(1)}%)`
+      }
+    } else {
+      return {
+        icon: Minus,
+        color: 'text-gray-400',
+        text: 'No change'
+      }
+    }
+  }
+
+  // Get trend data for main stats
+  const trends = trendsData?.success ? trendsData.data : null
+
   const stats = [
     {
       title: 'Stars',
       value: formatNumber(repository.stargazers_count),
       icon: Star,
       description: 'GitHub stars',
+      trend: trends?.stars ? getTrendIndicator(trends.stars.change, trends.stars.changePercent) : null,
     },
     {
       title: 'Forks',
       value: formatNumber(repository.forks_count),
       icon: GitFork,
       description: 'Repository forks',
+      trend: trends?.forks ? getTrendIndicator(trends.forks.change, trends.forks.changePercent) : null,
     },
     {
       title: 'Contributors',
       value: formatNumber(contributors.length),
       icon: Users,
       description: 'Total contributors',
+      trend: trends?.contributors ? getTrendIndicator(trends.contributors.change, trends.contributors.changePercent) : null,
     },
     {
       title: 'External Contributors',
@@ -106,6 +149,7 @@ export function DashboardOverview() {
         {stats.map((stat) => {
           const Icon = stat.icon
           const isHighlight = stat.highlight
+          const trend = stat.trend
           return (
             <div
               key={stat.title}
@@ -115,15 +159,32 @@ export function DashboardOverview() {
                   : 'bg-card text-card-foreground'
               }`}
             >
-              <div className="flex items-center space-x-2">
-                <Icon className={`h-5 w-5 ${isHighlight ? 'text-primary' : 'text-muted-foreground'}`} />
-                <h3 className="font-heading font-medium">{stat.title}</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Icon className={`h-5 w-5 ${isHighlight ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <h3 className="font-heading font-medium">{stat.title}</h3>
+                </div>
+                {trend && (
+                  <div className="flex items-center space-x-1">
+                    <trend.icon className={`h-4 w-4 ${trend.color}`} />
+                  </div>
+                )}
               </div>
               <div className="mt-2">
                 <p className={`text-2xl font-bold ${isHighlight ? 'text-primary' : ''}`}>
                   {stat.value}
                 </p>
-                <p className="text-sm text-muted-foreground">{stat.description}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">{stat.description}</p>
+                  {trend && (
+                    <p className={`text-xs ${trend.color} font-medium`}>
+                      {trend.text}
+                    </p>
+                  )}
+                </div>
+                {trend && (
+                  <p className="text-xs text-muted-foreground mt-1">vs 30 days ago</p>
+                )}
               </div>
             </div>
           )

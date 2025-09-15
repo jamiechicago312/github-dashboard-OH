@@ -38,14 +38,13 @@ export async function GET(request: Request) {
 
     console.log('Fetched basic info, getting contributors...')
 
-    // Fetch contributors, organization members, and maintainers
-    const [contributors, orgMembers, maintainers] = await Promise.all([
+    // Fetch contributors and organization members
+    const [contributors, orgMembers] = await Promise.all([
       GitHubAPI.getAllRepositoryContributors(OWNER, REPO),
       GitHubAPI.getAllOrganizationMembers(ORG),
-      GitHubAPI.getRepositoryMaintainers(OWNER, REPO),
     ])
 
-    console.log(`Found ${contributors.length} contributors, ${orgMembers.length} org members, ${maintainers.length} maintainers`)
+    console.log(`Found ${contributors.length} contributors, ${orgMembers.length} org members`)
 
     // Identify top contributors (excluding All-Hands-AI members)
     const orgMemberLogins = orgMembers.map(member => member.login.toLowerCase())
