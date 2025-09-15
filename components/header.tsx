@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import { ThemeToggle } from './theme-toggle'
 
+import { SimpleCountdown } from './simple-countdown'
+
 export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -18,11 +20,12 @@ export function Header() {
         </div>
 
         <nav className="flex items-center space-x-4">
+          <SimpleCountdown />
           <Link
             href="https://github.com/All-Hands-AI/OpenHands"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-3 space-x-1"
+            className="flex items-center space-x-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <span>OpenHands Repo</span>
             <ExternalLink className="h-3 w-3" />
@@ -32,7 +35,7 @@ export function Header() {
             href="https://github.com/All-Hands-AI"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-3 space-x-1"
+            className="flex items-center space-x-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <span>All-Hands-AI Org</span>
             <ExternalLink className="h-3 w-3" />

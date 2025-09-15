@@ -14,7 +14,7 @@ export default function HomePage() {
           OpenHands Dashboard
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Analytics and insights for the OpenHands repository.
+          Analytics and insights for the OpenHands repository and All-Hands-AI organization
         </p>
       </div>
 

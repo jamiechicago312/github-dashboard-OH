@@ -1,8 +1,7 @@
 'use client'
 
 import useSWR from 'swr'
-import Link from 'next/link'
-import { Star, GitFork, Users, Activity, Bot, UserPlus, ExternalLink } from 'lucide-react'
+import { Star, GitFork, Users, Activity, Bot, UserPlus } from 'lucide-react'
 import { DashboardData } from '@/types/github'
 import { formatNumber } from '@/lib/utils'
 import { LoadingSpinner } from './loading-card'
@@ -47,7 +46,6 @@ export function DashboardOverview() {
     contributors,
     externalContributors,
     firstTimeContributors,
-    firstTimeContributorsCount,
     agentContributors,
     totalAgentContributions,
     orgStats
@@ -87,9 +85,9 @@ export function DashboardOverview() {
     },
     {
       title: 'First-Time Contributors',
-      value: formatNumber(firstTimeContributorsCount),
+      value: formatNumber(firstTimeContributors.length),
       icon: UserPlus,
-      description: 'New contributors to last release',
+      description: 'New contributors',
     },
   ]
 
@@ -140,39 +138,23 @@ export function DashboardOverview() {
             <h3 className="font-heading font-semibold">Recent First-Time Contributors</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {firstTimeContributors.slice(0, 20).map((contributor) => (
-              <Link
-                key={contributor.id}
-                href={contributor.html_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group cursor-pointer"
-              >
+            {firstTimeContributors.slice(0, 12).map((contributor) => (
+              <div key={contributor.id} className="flex items-center space-x-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                 <img
                   src={contributor.avatar_url}
                   alt={contributor.login}
                   className="w-8 h-8 rounded-full"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-1">
-                    <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                      {contributor.name || contributor.login}
-                    </p>
-                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
+                  <p className="text-sm font-medium truncate">{contributor.name || contributor.login}</p>
                   <p className="text-xs text-muted-foreground">@{contributor.login}</p>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
-          {firstTimeContributors.length > 20 && (
+          {firstTimeContributors.length > 12 && (
             <p className="text-sm text-muted-foreground mt-4 text-center">
-              And {firstTimeContributors.length - 20} more first-time contributors...
-            </p>
-          )}
-          {firstTimeContributors.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No recent first-time contributors found.
+              And {firstTimeContributors.length - 12} more first-time contributors...
             </p>
           )}
         </div>
