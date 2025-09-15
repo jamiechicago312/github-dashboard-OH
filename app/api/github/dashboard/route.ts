@@ -38,21 +38,23 @@ export async function GET(request: Request) {
 
     console.log('Fetched basic info, getting contributors...')
 
-    // Fetch contributors and organization members
-    const [contributors, orgMembers] = await Promise.all([
+    // Fetch contributors, organization members, and maintainers
+    const [contributors, orgMembers, maintainers] = await Promise.all([
       GitHubAPI.getAllRepositoryContributors(OWNER, REPO),
       GitHubAPI.getAllOrganizationMembers(ORG),
+      GitHubAPI.getRepositoryMaintainers(OWNER, REPO),
     ])
 
-    console.log(`Found ${contributors.length} contributors, ${orgMembers.length} org members`)
+    console.log(`Found ${contributors.length} contributors, ${orgMembers.length} org members, ${maintainers.length} maintainers`)
 
-    // Identify external contributors
+    // Identify top contributors (excluding All-Hands-AI members)
     const orgMemberLogins = orgMembers.map(member => member.login.toLowerCase())
-    const externalContributors = contributors.filter(contributor => 
-      isExternalContributor(contributor, orgMemberLogins)
-    )
+    const topContributors = contributors
+      .filter(contributor => isExternalContributor(contributor, orgMemberLogins))
+      .sort((a, b) => b.contributions - a.contributions)
+      .slice(0, 20)
 
-    console.log(`Found ${externalContributors.length} external contributors`)
+    console.log(`Found ${topContributors.length} top contributors`)
 
     // Track OpenHands agent contributions
     const openHandsAgents = ['openhands', 'openhands-agent', 'openhands-ai']
@@ -63,12 +65,8 @@ export async function GET(request: Request) {
 
     console.log(`Found ${agentContributors.length} OpenHands agent contributors with ${totalAgentContributions} total contributions`)
 
-    // Get detailed contributor information for top external contributors
-    const topExternalContributors = externalContributors
-      .sort((a, b) => b.contributions - a.contributions)
-      .slice(0, 20)
-
-    const detailedExternalContributors = await GitHubAPI.getContributorDetails(topExternalContributors)
+    // Get detailed contributor information for top contributors
+    const detailedTopContributors = await GitHubAPI.getContributorDetails(topContributors)
 
     // Get first-time contributors (contributors with only 1 contribution, sorted by most recent)
     const firstTimeContributors = contributors
@@ -117,8 +115,9 @@ export async function GET(request: Request) {
       repository,
       organization,
       contributors: allContributorsWithFlags,
-      externalContributors: detailedExternalContributors,
+      topContributors: detailedTopContributors,
       firstTimeContributors: detailedFirstTimeContributors,
+      maintainers,
       agentContributors,
       totalAgentContributions,
       recentCommits,

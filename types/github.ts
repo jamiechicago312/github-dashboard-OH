@@ -177,12 +177,30 @@ export interface OrganizationStats {
   }>
 }
 
+export interface TimeRangeOption {
+  label: string
+  value: string
+  days?: number
+  since?: string
+  until?: string
+}
+
+export interface TimeBasedMetrics {
+  timeRange: TimeRangeOption
+  stats: RepositoryStats
+  commits: GitHubCommit[]
+  pullRequests: GitHubPullRequest[]
+  issues: GitHubIssue[]
+  releases: GitHubRelease[]
+}
+
 export interface DashboardData {
   repository: GitHubRepository
   organization: GitHubUser
   contributors: GitHubContributor[]
-  externalContributors: GitHubContributor[]
+  topContributors: GitHubContributor[]
   firstTimeContributors: GitHubContributor[]
+  maintainers: GitHubUser[]
   agentContributors: GitHubContributor[]
   totalAgentContributions: number
   recentCommits: GitHubCommit[]
@@ -192,4 +210,5 @@ export interface DashboardData {
   stats: RepositoryStats
   orgStats: OrganizationStats
   contributionStats: ContributionStats
+  timeBasedMetrics?: TimeBasedMetrics
 }
