@@ -60,8 +60,7 @@ export function DashboardOverview() {
     contributors,
     firstTimeContributors,
     agentContributors,
-    totalAgentContributions,
-    orgStats
+    totalAgentContributions
   } = data
 
   // Helper function to get trend indicator
@@ -251,24 +250,7 @@ export function DashboardOverview() {
         </div>
       )}
 
-      {/* Organization Stats */}
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="font-heading font-semibold mb-4">All-Hands-AI Organization</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold">{formatNumber(orgStats.repositories.length)}</p>
-            <p className="text-sm text-muted-foreground">Repositories</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">{formatNumber(orgStats.totalStars)}</p>
-            <p className="text-sm text-muted-foreground">Total Stars</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">{formatNumber(orgStats.totalForks)}</p>
-            <p className="text-sm text-muted-foreground">Total Forks</p>
-          </div>
-        </div>
-      </div>
+
     </div>
   )
 }
