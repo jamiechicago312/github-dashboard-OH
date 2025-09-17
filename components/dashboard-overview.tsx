@@ -1,13 +1,18 @@
 'use client'
 
 import useSWR from 'swr'
-import Link from 'next/link'
-import { Star, GitFork, Users, Activity, Bot, UserPlus, ExternalLink } from 'lucide-react'
+import { Star, GitFork, Users, Activity, Bot, UserPlus, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { DashboardData } from '@/types/github'
 import { formatNumber } from '@/lib/utils'
 import { LoadingSpinner } from './loading-card'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+interface TrendData {
+  stars: { current: number; previous: number; change: number; changePercent: number }
+  forks: { current: number; previous: number; change: number; changePercent: number }
+  contributors: { current: number; previous: number; change: number; changePercent: number }
+}
 
 export function DashboardOverview() {
   const { data, error, isLoading } = useSWR<DashboardData & { _cache?: any }>('/api/github/dashboard', fetcher, {
@@ -15,6 +20,14 @@ export function DashboardOverview() {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     dedupingInterval: 300000, // Dedupe requests within 5 minutes
+  })
+
+  // Fetch trend data
+  const { data: trendsData } = useSWR<{ success: boolean; data: TrendData }>('/api/github/trends', fetcher, {
+    refreshInterval: 0,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 600000, // Dedupe requests within 10 minutes
   })
 
   if (isLoading) {
@@ -45,13 +58,37 @@ export function DashboardOverview() {
   const {
     repository,
     contributors,
-    externalContributors,
     firstTimeContributors,
     firstTimeContributorsCount,
     agentContributors,
-    totalAgentContributions,
-    orgStats
+    totalAgentContributions
   } = data
+
+  // Helper function to get trend indicator
+  const getTrendIndicator = (change: number, changePercent: number) => {
+    if (change > 0) {
+      return {
+        icon: TrendingUp,
+        color: 'text-green-500',
+        text: `+${change} (+${changePercent.toFixed(1)}%)`
+      }
+    } else if (change < 0) {
+      return {
+        icon: TrendingDown,
+        color: 'text-red-500',
+        text: `${change} (${changePercent.toFixed(1)}%)`
+      }
+    } else {
+      return {
+        icon: Minus,
+        color: 'text-gray-400',
+        text: 'No change'
+      }
+    }
+  }
+
+  // Get trend data for main stats
+  const trends = trendsData?.success ? trendsData.data : null
 
   const stats = [
     {
@@ -59,24 +96,21 @@ export function DashboardOverview() {
       value: formatNumber(repository.stargazers_count),
       icon: Star,
       description: 'GitHub stars',
+      trend: trends?.stars ? getTrendIndicator(trends.stars.change, trends.stars.changePercent) : null,
     },
     {
       title: 'Forks',
       value: formatNumber(repository.forks_count),
       icon: GitFork,
       description: 'Repository forks',
+      trend: trends?.forks ? getTrendIndicator(trends.forks.change, trends.forks.changePercent) : null,
     },
     {
       title: 'Contributors',
       value: formatNumber(contributors.length),
       icon: Users,
       description: 'Total contributors',
-    },
-    {
-      title: 'External Contributors',
-      value: formatNumber(externalContributors.length),
-      icon: Activity,
-      description: 'Non-org contributors',
+      trend: trends?.contributors ? getTrendIndicator(trends.contributors.change, trends.contributors.changePercent) : null,
     },
     {
       title: 'OpenHands Agent',
@@ -89,7 +123,7 @@ export function DashboardOverview() {
       title: 'First-Time Contributors',
       value: formatNumber(firstTimeContributorsCount),
       icon: UserPlus,
-      description: 'New contributors to last release',
+      description: 'Since latest release',
     },
   ]
 
@@ -108,6 +142,7 @@ export function DashboardOverview() {
         {stats.map((stat) => {
           const Icon = stat.icon
           const isHighlight = stat.highlight
+          const trend = stat.trend
           return (
             <div
               key={stat.title}
@@ -117,15 +152,32 @@ export function DashboardOverview() {
                   : 'bg-card text-card-foreground'
               }`}
             >
-              <div className="flex items-center space-x-2">
-                <Icon className={`h-5 w-5 ${isHighlight ? 'text-primary' : 'text-muted-foreground'}`} />
-                <h3 className="font-heading font-medium">{stat.title}</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Icon className={`h-5 w-5 ${isHighlight ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <h3 className="font-heading font-medium">{stat.title}</h3>
+                </div>
+                {trend && (
+                  <div className="flex items-center space-x-1">
+                    <trend.icon className={`h-4 w-4 ${trend.color}`} />
+                  </div>
+                )}
               </div>
               <div className="mt-2">
                 <p className={`text-2xl font-bold ${isHighlight ? 'text-primary' : ''}`}>
                   {stat.value}
                 </p>
-                <p className="text-sm text-muted-foreground">{stat.description}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">{stat.description}</p>
+                  {trend && (
+                    <p className={`text-xs ${trend.color} font-medium`}>
+                      {trend.text}
+                    </p>
+                  )}
+                </div>
+                {trend && (
+                  <p className="text-xs text-muted-foreground mt-1">vs 30 days ago</p>
+                )}
               </div>
             </div>
           )
@@ -140,39 +192,23 @@ export function DashboardOverview() {
             <h3 className="font-heading font-semibold">Recent First-Time Contributors</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {firstTimeContributors.slice(0, 20).map((contributor) => (
-              <Link
-                key={contributor.id}
-                href={contributor.html_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group cursor-pointer"
-              >
+            {firstTimeContributors.slice(0, 12).map((contributor) => (
+              <div key={contributor.id} className="flex items-center space-x-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                 <img
                   src={contributor.avatar_url}
                   alt={contributor.login}
                   className="w-8 h-8 rounded-full"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-1">
-                    <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                      {contributor.name || contributor.login}
-                    </p>
-                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
+                  <p className="text-sm font-medium truncate">{contributor.name || contributor.login}</p>
                   <p className="text-xs text-muted-foreground">@{contributor.login}</p>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
-          {firstTimeContributors.length > 20 && (
+          {firstTimeContributors.length > 12 && (
             <p className="text-sm text-muted-foreground mt-4 text-center">
-              And {firstTimeContributors.length - 20} more first-time contributors...
-            </p>
-          )}
-          {firstTimeContributors.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No recent first-time contributors found.
+              And {firstTimeContributors.length - 12} more first-time contributors...
             </p>
           )}
         </div>
@@ -215,24 +251,7 @@ export function DashboardOverview() {
         </div>
       )}
 
-      {/* Organization Stats */}
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="font-heading font-semibold mb-4">All-Hands-AI Organization</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold">{formatNumber(orgStats.repositories.length)}</p>
-            <p className="text-sm text-muted-foreground">Repositories</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">{formatNumber(orgStats.totalStars)}</p>
-            <p className="text-sm text-muted-foreground">Total Stars</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">{formatNumber(orgStats.totalForks)}</p>
-            <p className="text-sm text-muted-foreground">Total Forks</p>
-          </div>
-        </div>
-      </div>
+
     </div>
   )
 }

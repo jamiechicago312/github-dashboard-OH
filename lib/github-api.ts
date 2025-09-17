@@ -402,7 +402,8 @@ export class GitHubAPI {
 
   /**
    * Get the most recent first-time contributors chronologically
-   * This identifies contributors with exactly 1 contribution and sorts them by most recent activity
+   * This uses GitHub release notes to identify true first-time contributors
+   * by parsing the "New Contributors" sections from recent releases
    */
   static async getRecentFirstTimeContributors(
     owner: string,
@@ -410,46 +411,104 @@ export class GitHubAPI {
     limit = 20
   ): Promise<GitHubContributor[]> {
     try {
-      console.log('Getting recent first-time contributors...')
+      console.log('Getting recent first-time contributors from release notes...')
       
-      // Get all contributors
-      const allContributors = await this.getAllRepositoryContributors(owner, repo, 20)
+      // Get recent releases (last 10 releases to capture more first-time contributors)
+      const releases = await this.getRepositoryReleases(owner, repo, 1, 10)
+      console.log(`Analyzing ${releases.length} recent releases for first-time contributors`)
       
-      // Filter to only first-time contributors (exactly 1 contribution)
-      const firstTimeContributors = allContributors.filter(contributor => contributor.contributions === 1)
+      // Track first-time contributors with their release date
+      const firstTimeContributorsMap = new Map<string, { 
+        username: string, 
+        releaseDate: string, 
+        releaseTag: string 
+      }>()
       
-      console.log(`Found ${firstTimeContributors.length} first-time contributors`)
+      // Process releases from oldest to newest to get the earliest mention of each contributor
+      const sortedReleases = releases.sort((a, b) => 
+        new Date(a.published_at || a.created_at).getTime() - new Date(b.published_at || b.created_at).getTime()
+      )
       
-      if (firstTimeContributors.length === 0) {
-        return []
-      }
-
-      // Get recent commits to find the most recent activity for each first-time contributor
-      const recentCommits = await this.getRepositoryCommits(owner, repo, undefined, 1, 100) // Get last 100 commits
-      
-      // Create a map of contributor login to their most recent commit date
-      const contributorLastCommitMap = new Map<string, string>()
-      
-      for (const commit of recentCommits) {
-        const authorLogin = commit.author?.login
-        if (authorLogin && !contributorLastCommitMap.has(authorLogin)) {
-          contributorLastCommitMap.set(authorLogin, commit.commit.author.date)
+      for (const release of sortedReleases) {
+        const releaseBody = release.body || ''
+        const releaseDate = release.published_at || release.created_at
+        
+        console.log(`Parsing release ${release.tag_name} for new contributors`)
+        
+        // Extract new contributors section from release notes
+        const newContributorsMatch = releaseBody.match(/## New Contributors\s*([\s\S]*?)(?=\n##|\*\*Full Changelog\*\*|$)/i)
+        
+        if (newContributorsMatch) {
+          const newContributorsSection = newContributorsMatch[1]
+          
+          // Extract usernames from lines like "* @username made their first contribution in https://github.com/..."
+          const usernameMatches = newContributorsSection.match(/@([a-zA-Z0-9_-]+)/g)
+          
+          if (usernameMatches) {
+            // Remove @ symbol and get unique usernames
+            const usernames = Array.from(new Set(usernameMatches.map(match => match.substring(1))))
+            
+            console.log(`Found ${usernames.length} new contributors in ${release.tag_name}: ${usernames.join(', ')}`)
+            
+            // Add to map (only if not already present - keeps the earliest release)
+            for (const username of usernames) {
+              if (!firstTimeContributorsMap.has(username)) {
+                firstTimeContributorsMap.set(username, {
+                  username,
+                  releaseDate,
+                  releaseTag: release.tag_name
+                })
+              }
+            }
+          }
         }
       }
       
-      // Add commit dates to first-time contributors and sort by most recent
-      const contributorsWithDates = firstTimeContributors
-        .map(contributor => ({
-          ...contributor,
-          lastCommitDate: contributorLastCommitMap.get(contributor.login) || '1970-01-01T00:00:00Z'
-        }))
-        .sort((a, b) => new Date(b.lastCommitDate).getTime() - new Date(a.lastCommitDate).getTime())
+      console.log(`Found ${firstTimeContributorsMap.size} unique first-time contributors across all releases`)
+      
+      if (firstTimeContributorsMap.size === 0) {
+        console.log('No first-time contributors found in release notes')
+        return []
+      }
+      
+      // Get detailed contributor information
+      const contributorDetails = await Promise.allSettled(
+        Array.from(firstTimeContributorsMap.values()).map(async ({ username, releaseDate, releaseTag }) => {
+          try {
+            const user = await this.getUser(username)
+            return {
+              id: user.id,
+              login: user.login,
+              avatar_url: user.avatar_url,
+              html_url: user.html_url,
+              contributions: 1, // First-time contributors start with 1
+              type: user.type === 'Organization' ? 'Bot' : 'User',
+              name: user.name,
+              company: user.company,
+              location: user.location,
+              releaseDate,
+              releaseTag
+            } as GitHubContributor & { releaseDate: string, releaseTag: string }
+          } catch (error) {
+            console.error(`Failed to fetch details for contributor ${username}:`, error)
+            return null
+          }
+        })
+      )
+      
+      // Filter out failed requests and sort by most recent release date
+      const validContributors = contributorDetails
+        .filter((result): result is PromiseFulfilledResult<GitHubContributor & { releaseDate: string, releaseTag: string }> => 
+          result.status === 'fulfilled' && result.value !== null
+        )
+        .map(result => result.value)
+        .sort((a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime())
         .slice(0, limit)
       
-      // Remove the temporary lastCommitDate property
-      const result = contributorsWithDates.map(({ lastCommitDate, ...contributor }) => contributor)
+      // Remove temporary properties
+      const result = validContributors.map(({ releaseDate, releaseTag, ...contributor }) => contributor)
       
-      console.log(`Returning ${result.length} most recent first-time contributors`)
+      console.log(`Returning ${result.length} recent first-time contributors from release notes`)
       
       return result
     } catch (error) {
@@ -587,6 +646,420 @@ export class GitHubAPI {
       sort: 'stars',
       order: 'desc'
     })
+  }
+
+  /**
+   * Get repository collaborators with write access (maintainers)
+   */
+  static async getRepositoryMaintainers(
+    owner: string,
+    repo: string
+  ): Promise<GitHubUser[]> {
+    try {
+      const collaborators = await fetchGitHub(`/repos/${owner}/${repo}/collaborators`)
+      
+      // Filter for users with write or admin access
+      const maintainers = await Promise.allSettled(
+        collaborators.map(async (collaborator: GitHubUser) => {
+          try {
+            const permission = await fetchGitHub(`/repos/${owner}/${repo}/collaborators/${collaborator.login}/permission`)
+            if (permission.permission === 'admin' || permission.permission === 'write') {
+              return collaborator
+            }
+            return null
+          } catch (error) {
+            console.warn(`Failed to get permission for ${collaborator.login}:`, error)
+            return null
+          }
+        })
+      )
+
+      return maintainers
+        .filter((result): result is PromiseFulfilledResult<GitHubUser> => 
+          result.status === 'fulfilled' && result.value !== null
+        )
+        .map(result => result.value)
+    } catch (error) {
+      console.error('Error fetching maintainers:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get repository commits for a specific time range
+   */
+  static async getRepositoryCommitsInRange(
+    owner: string,
+    repo: string,
+    since?: string,
+    until?: string,
+    maxPages = 10
+  ): Promise<GitHubCommit[]> {
+    const options: GitHubAPIOptions = { per_page: 100 }
+    if (since) options.since = since
+    if (until) options.until = until
+    
+    return fetchAllPages<GitHubCommit>(`/repos/${owner}/${repo}/commits`, options, maxPages)
+  }
+
+  /**
+   * Get repository issues for a specific time range
+   */
+  static async getRepositoryIssuesInRange(
+    owner: string,
+    repo: string,
+    state: 'open' | 'closed' | 'all' = 'all',
+    since?: string,
+    until?: string,
+    maxPages = 10
+  ): Promise<GitHubIssue[]> {
+    const options: GitHubAPIOptions = { 
+      state, 
+      per_page: 100,
+      sort: 'created',
+      direction: 'desc'
+    }
+    if (since) options.since = since
+    
+    const issues = await fetchAllPages<GitHubIssue>(`/repos/${owner}/${repo}/issues`, options, maxPages)
+    
+    // Filter by date range if until is specified
+    if (until) {
+      const untilDate = new Date(until)
+      return issues.filter(issue => new Date(issue.created_at) <= untilDate)
+    }
+    
+    return issues
+  }
+
+  /**
+   * Get repository pull requests for a specific time range
+   */
+  static async getRepositoryPullRequestsInRange(
+    owner: string,
+    repo: string,
+    state: 'open' | 'closed' | 'all' = 'all',
+    since?: string,
+    until?: string,
+    maxPages = 10
+  ): Promise<GitHubPullRequest[]> {
+    const options: GitHubAPIOptions = { 
+      state, 
+      per_page: 100,
+      sort: 'created',
+      direction: 'desc'
+    }
+    
+    const prs = await fetchAllPages<GitHubPullRequest>(`/repos/${owner}/${repo}/pulls`, options, maxPages)
+    
+    // Filter by date range
+    let filteredPRs = prs
+    if (since) {
+      const sinceDate = new Date(since)
+      filteredPRs = filteredPRs.filter(pr => new Date(pr.created_at) >= sinceDate)
+    }
+    if (until) {
+      const untilDate = new Date(until)
+      filteredPRs = filteredPRs.filter(pr => new Date(pr.created_at) <= untilDate)
+    }
+    
+    return filteredPRs
+  }
+
+  /**
+   * Calculate repository statistics for a specific time range
+   */
+  static async calculateRepositoryStatsForRange(
+    owner: string,
+    repo: string,
+    since?: string,
+    until?: string
+  ): Promise<RepositoryStats> {
+    try {
+      // For all-time data (no since/until), use accurate count methods
+      if (!since && !until) {
+        console.log('Calculating all-time repository stats using accurate count methods...')
+        const [
+          repository,
+          contributors,
+          branches,
+          releases,
+          issueCounts,
+          prCounts,
+          commitCount
+        ] = await Promise.allSettled([
+          this.getRepository(owner, repo),
+          this.getAllRepositoryContributors(owner, repo, 5),
+          fetchGitHub(`/repos/${owner}/${repo}/branches`, { per_page: 100 }),
+          this.getRepositoryReleases(owner, repo, 1, 100),
+          this.getAllTimeIssueCounts(owner, repo),
+          this.getAllTimePullRequestCounts(owner, repo),
+          this.getAllTimeCommitCount(owner, repo)
+        ])
+
+        const getResult = <T>(result: PromiseSettledResult<T>, fallback: T): T => {
+          return result.status === 'fulfilled' ? result.value : fallback
+        }
+
+        const repoData = getResult(repository, {} as any)
+        const contributorsData = getResult(contributors, [])
+        const branchesData = getResult(branches, [])
+        const releasesData = getResult(releases, [])
+        const issueData = getResult(issueCounts, { open: 0, closed: 0, total: 0 })
+        const prData = getResult(prCounts, { open: 0, closed: 0, merged: 0, total: 0 })
+        const commitData = getResult(commitCount, 0)
+
+        return {
+          contributors: contributorsData.length,
+          commits: commitData,
+          branches: Array.isArray(branchesData) ? branchesData.length : 0,
+          releases: Array.isArray(releasesData) ? releasesData.length : 0,
+          issues: issueData,
+          pullRequests: prData
+        }
+      }
+
+      // For time-range data, use the existing method with actual data fetching
+      const [
+        repository,
+        contributors,
+        branches,
+        releases,
+        issues,
+        pullRequests,
+        commits
+      ] = await Promise.allSettled([
+        this.getRepository(owner, repo),
+        this.getAllRepositoryContributors(owner, repo, 5),
+        fetchGitHub(`/repos/${owner}/${repo}/branches`, { per_page: 100 }),
+        this.getRepositoryReleases(owner, repo, 1, 100),
+        this.getRepositoryIssuesInRange(owner, repo, 'all', since, until, 10),
+        this.getRepositoryPullRequestsInRange(owner, repo, 'all', since, until, 10),
+        since ? this.getRepositoryCommitsInRange(owner, repo, since, until, 10) : []
+      ])
+
+      const getResult = <T>(result: PromiseSettledResult<T>, fallback: T): T => {
+        return result.status === 'fulfilled' ? result.value : fallback
+      }
+
+      const repoData = getResult(repository, {} as any)
+      const issuesData = getResult(issues, [])
+      const prsData = getResult(pullRequests, [])
+      const commitsData = getResult(commits, [])
+      const contributorsData = getResult(contributors, [])
+      const branchesData = getResult(branches, [])
+      const releasesData = getResult(releases, [])
+
+      // Filter issues vs PRs (GitHub API returns both in issues endpoint)
+      const actualIssues = issuesData.filter(issue => !('pull_request' in issue))
+      const openIssues = actualIssues.filter(issue => issue.state === 'open')
+      const closedIssues = actualIssues.filter(issue => issue.state === 'closed')
+
+      const openPRs = prsData.filter(pr => pr.state === 'open')
+      const closedPRs = prsData.filter(pr => pr.state === 'closed')
+      const mergedPRs = closedPRs.filter(pr => pr.merged)
+
+      return {
+        contributors: contributorsData.length,
+        commits: commitsData.length,
+        branches: Array.isArray(branchesData) ? branchesData.length : 0,
+        releases: Array.isArray(releasesData) ? releasesData.length : 0,
+        issues: {
+          open: openIssues.length,
+          closed: closedIssues.length,
+          total: actualIssues.length
+        },
+        pullRequests: {
+          open: openPRs.length,
+          closed: closedPRs.length,
+          merged: mergedPRs.length,
+          total: prsData.length
+        }
+      }
+    } catch (error) {
+      console.error('Error calculating repository stats for range:', error)
+      return {
+        contributors: 0,
+        commits: 0,
+        branches: 0,
+        releases: 0,
+        issues: { open: 0, closed: 0, total: 0 },
+        pullRequests: { open: 0, closed: 0, merged: 0, total: 0 }
+      }
+    }
+  }
+
+  /**
+   * Get accurate all-time issue counts using search API
+   */
+  static async getAllTimeIssueCounts(
+    owner: string,
+    repo: string
+  ): Promise<{ open: number; closed: number; total: number }> {
+    try {
+      const [openResult, closedResult] = await Promise.all([
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:issue state:open`,
+          per_page: 1
+        }),
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:issue state:closed`,
+          per_page: 1
+        })
+      ])
+
+      const openCount = openResult.total_count || 0
+      const closedCount = closedResult.total_count || 0
+
+      return {
+        open: openCount,
+        closed: closedCount,
+        total: openCount + closedCount
+      }
+    } catch (error) {
+      console.error('Error getting all-time issue counts:', error)
+      return { open: 0, closed: 0, total: 0 }
+    }
+  }
+
+  /**
+   * Get accurate all-time pull request counts using search API
+   */
+  static async getAllTimePullRequestCounts(
+    owner: string,
+    repo: string
+  ): Promise<{ open: number; closed: number; merged: number; total: number }> {
+    try {
+      const [openResult, closedResult, mergedResult] = await Promise.all([
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr state:open`,
+          per_page: 1
+        }),
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr state:closed`,
+          per_page: 1
+        }),
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr is:merged`,
+          per_page: 1
+        })
+      ])
+
+      const openCount = openResult.total_count || 0
+      const closedCount = closedResult.total_count || 0
+      const mergedCount = mergedResult.total_count || 0
+
+      return {
+        open: openCount,
+        closed: closedCount,
+        merged: mergedCount,
+        total: openCount + closedCount
+      }
+    } catch (error) {
+      console.error('Error getting all-time PR counts:', error)
+      return { open: 0, closed: 0, merged: 0, total: 0 }
+    }
+  }
+
+  /**
+   * Get accurate all-time commit count using search API
+   */
+  static async getAllTimeCommitCount(
+    owner: string,
+    repo: string
+  ): Promise<number> {
+    try {
+      // Use contributor contributions sum as the most reliable method
+      const contributors = await this.getAllRepositoryContributors(owner, repo, 100)
+      const totalCommits = contributors.reduce((sum, contributor) => sum + contributor.contributions, 0)
+      
+      console.log(`Total commits from contributors: ${totalCommits}`)
+      return totalCommits
+    } catch (error) {
+      console.error('Error getting all-time commit count:', error)
+      // Final fallback - return 0
+      return 0
+    }
+  }
+
+  /**
+   * Get comprehensive all-time repository statistics
+   */
+  static async getAllTimeRepositoryStats(
+    owner: string,
+    repo: string
+  ): Promise<{
+    stars: number
+    forks: number
+    contributors: number
+    commits: number
+    releases: number
+    issues: { open: number; closed: number; total: number }
+    pullRequests: { open: number; closed: number; merged: number; total: number }
+  }> {
+    try {
+      console.log(`🔍 Fetching all-time statistics for ${owner}/${repo}`)
+
+      const [
+        repository,
+        contributors,
+        releases,
+        issueCounts,
+        prCounts,
+        commitCount
+      ] = await Promise.allSettled([
+        this.getRepository(owner, repo),
+        this.getAllRepositoryContributors(owner, repo, 20),
+        this.getAllRepositoryReleases(owner, repo, 20),
+        this.getAllTimeIssueCounts(owner, repo),
+        this.getAllTimePullRequestCounts(owner, repo),
+        this.getAllTimeCommitCount(owner, repo)
+      ])
+
+      const getResult = <T>(result: PromiseSettledResult<T>, fallback: T): T => {
+        return result.status === 'fulfilled' ? result.value : fallback
+      }
+
+      const repoData = getResult(repository, { stargazers_count: 0, forks_count: 0 } as any)
+      const contributorsData = getResult(contributors, [])
+      const releasesData = getResult(releases, [])
+      const issueData = getResult(issueCounts, { open: 0, closed: 0, total: 0 })
+      const prData = getResult(prCounts, { open: 0, closed: 0, merged: 0, total: 0 })
+      const commitData = getResult(commitCount, 0)
+
+      const stats = {
+        stars: repoData.stargazers_count,
+        forks: repoData.forks_count,
+        contributors: contributorsData.length,
+        commits: commitData,
+        releases: releasesData.length,
+        issues: issueData,
+        pullRequests: prData
+      }
+
+      console.log('✅ All-time statistics collected:', {
+        stars: stats.stars,
+        forks: stats.forks,
+        contributors: stats.contributors,
+        commits: stats.commits,
+        releases: stats.releases,
+        issues: `${stats.issues.open} open, ${stats.issues.closed} closed, ${stats.issues.total} total`,
+        prs: `${stats.pullRequests.open} open, ${stats.pullRequests.closed} closed, ${stats.pullRequests.merged} merged, ${stats.pullRequests.total} total`
+      })
+
+      return stats
+    } catch (error) {
+      console.error('Error getting all-time repository stats:', error)
+      return {
+        stars: 0,
+        forks: 0,
+        contributors: 0,
+        commits: 0,
+        releases: 0,
+        issues: { open: 0, closed: 0, total: 0 },
+        pullRequests: { open: 0, closed: 0, merged: 0, total: 0 }
+      }
+    }
   }
 
   /**

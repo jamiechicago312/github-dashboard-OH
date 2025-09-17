@@ -50,7 +50,7 @@ export interface GitHubContributor {
   name?: string
   company?: string
   location?: string
-  isExternal?: boolean
+  isCommunity?: boolean
   isAgent?: boolean
 }
 
@@ -192,11 +192,41 @@ export interface MetricsCounts {
   totalReleases: number
 }
 
+export interface TimeRangeOption {
+  label: string
+  value: string
+  days?: number
+}
+
+export interface TimeBasedMetrics {
+  timeRange: TimeRangeOption
+  stats: RepositoryStats
+  commits: GitHubCommit[]
+  pullRequests: GitHubPullRequest[]
+  issues: GitHubIssue[]
+  releases: GitHubRelease[]
+}
+
+export interface TimeRangeOption {
+  label: string
+  value: string
+  days?: number
+}
+
+export interface TimeBasedMetrics {
+  timeRange: TimeRangeOption
+  stats: RepositoryStats
+  commits: GitHubCommit[]
+  pullRequests: GitHubPullRequest[]
+  issues: GitHubIssue[]
+  releases: GitHubRelease[]
+}
+
 export interface DashboardData {
   repository: GitHubRepository
   organization: GitHubUser
   contributors: GitHubContributor[]
-  externalContributors: GitHubContributor[]
+  communityContributors: GitHubContributor[]
   firstTimeContributors: GitHubContributor[]
   firstTimeContributorsCount: number // Count from latest release
   agentContributors: GitHubContributor[]

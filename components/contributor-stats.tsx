@@ -25,7 +25,7 @@ export function ContributorStats() {
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
         <h3 className="font-heading font-semibold mb-4 flex items-center space-x-2">
           <Users className="h-5 w-5" />
-          <span>External Contributors</span>
+          <span>Community Contributors</span>
         </h3>
         <div className="text-center text-muted-foreground">
           <p>Failed to load contributor data</p>
@@ -36,10 +36,10 @@ export function ContributorStats() {
 
   if (!data) return null
 
-  const { externalContributors } = data
+  const { communityContributors } = data
 
-  // Sort external contributors by contributions
-  const topExternalContributors = externalContributors
+  // Sort community contributors by contributions
+  const topCommunityContributors = (communityContributors || [])
     .sort((a, b) => b.contributions - a.contributions)
     .slice(0, 10)
 
@@ -48,15 +48,15 @@ export function ContributorStats() {
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-heading font-semibold flex items-center space-x-2">
           <Award className="h-5 w-5 text-yellow-500" />
-          <span>Top External Contributors</span>
+          <span>Top Community Contributors</span>
         </h3>
         <div className="text-sm text-muted-foreground">
-          {formatNumber(externalContributors.length)} total external contributors
+          {formatNumber((communityContributors || []).length)} total contributors
         </div>
       </div>
 
       <div className="space-y-4">
-        {topExternalContributors.map((contributor, index) => (
+        {topCommunityContributors.map((contributor, index) => (
           <div
             key={contributor.id}
             className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
@@ -123,10 +123,10 @@ export function ContributorStats() {
         ))}
       </div>
 
-      {externalContributors.length === 0 && (
+      {(communityContributors || []).length === 0 && (
         <div className="text-center text-muted-foreground py-8">
           <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>No external contributors found</p>
+          <p>No community contributors found</p>
         </div>
       )}
     </div>

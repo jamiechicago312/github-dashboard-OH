@@ -41,7 +41,7 @@ export function RepositoryMetrics() {
 
   if (!data) return null
 
-  const { repository, recentCommits, recentPullRequests, recentIssues, releases, metricsCounts } = data
+  const { repository, recentCommits, recentPullRequests, recentIssues, releases } = data
 
   const metrics = [
     {
@@ -49,28 +49,24 @@ export function RepositoryMetrics() {
       value: formatNumber(repository.open_issues_count),
       icon: AlertCircle,
       color: 'text-orange-500',
-      subtitle: 'Current open issues'
     },
     {
-      title: 'Commits (30d)',
-      value: formatNumber(metricsCounts.commits.last30Days),
+      title: 'Recent Commits',
+      value: formatNumber(recentCommits.length),
       icon: GitCommit,
       color: 'text-green-500',
-      subtitle: `${metricsCounts.commits.last7Days} in last 7 days`
     },
     {
-      title: 'Open PRs',
-      value: formatNumber(metricsCounts.pullRequests.open),
+      title: 'Recent PRs',
+      value: formatNumber(recentPullRequests.length),
       icon: GitPullRequest,
       color: 'text-blue-500',
-      subtitle: `${metricsCounts.pullRequests.closed} closed total`
     },
     {
-      title: 'Total Releases',
-      value: formatNumber(metricsCounts.totalReleases),
+      title: 'Releases',
+      value: formatNumber(releases.length),
       icon: Tag,
       color: 'text-purple-500',
-      subtitle: 'All-time releases'
     },
   ]
 
@@ -88,9 +84,6 @@ export function RepositoryMetrics() {
                 <Icon className={`h-6 w-6 mx-auto mb-2 ${metric.color}`} />
                 <div className="font-semibold text-lg">{metric.value}</div>
                 <div className="text-sm text-muted-foreground">{metric.title}</div>
-                {metric.subtitle && (
-                  <div className="text-xs text-muted-foreground mt-1">{metric.subtitle}</div>
-                )}
               </div>
             )
           })}

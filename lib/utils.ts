@@ -257,9 +257,9 @@ export function throttle<T extends (...args: any[]) => any>(
 }
 
 /**
- * Check if a contributor is external to the organization
+ * Check if a contributor is from the community (not an organization member)
  */
-export function isExternalContributor(
+export function isCommunityContributor(
   contributor: { login: string },
   orgMemberLogins: string[]
 ): boolean {

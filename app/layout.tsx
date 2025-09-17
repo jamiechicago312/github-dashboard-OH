@@ -13,7 +13,7 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: 'OpenHands Dashboard - GitHub Analytics',
-  description: 'Analytics dashboard for OpenHands repository and All-Hands-AI organization contributions',
+  description: 'Analytics dashboard for OpenHands repository contributions',
   keywords: ['OpenHands', 'GitHub', 'Analytics', 'Dashboard', 'Contributions'],
   authors: [{ name: 'OpenHands Community' }],
   icons: {
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'OpenHands Dashboard',
-    description: 'Analytics dashboard for OpenHands repository and All-Hands-AI organization contributions',
+    description: 'Analytics dashboard for OpenHands repository contributions',
     type: 'website',
   },
 }

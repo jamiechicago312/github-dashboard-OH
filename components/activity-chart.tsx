@@ -34,7 +34,7 @@ export function ActivityChart() {
 
   if (!data) return null
 
-  const { recentCommits, recentPullRequests, recentIssues, contributors, externalContributors } = data
+  const { recentCommits, recentPullRequests, recentIssues, contributors, communityContributors } = data
 
   // Group commits by date for the last 7 days
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -57,9 +57,9 @@ export function ActivityChart() {
   const maxCommits = Math.max(...commitsByDate.map(d => d.commits), 1)
 
   // Calculate activity stats
-  const totalExternalContributions = externalContributors.reduce((sum, c) => sum + c.contributions, 0)
+  const totalCommunityContributions = communityContributors.reduce((sum, c) => sum + c.contributions, 0)
   const totalContributions = contributors.reduce((sum, c) => sum + c.contributions, 0)
-  const externalPercentage = totalContributions > 0 ? Math.round((totalExternalContributions / totalContributions) * 100) : 0
+  const communityPercentage = totalContributions > 0 ? Math.round((totalCommunityContributions / totalContributions) * 100) : 0
 
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
@@ -79,8 +79,8 @@ export function ActivityChart() {
       {/* Activity Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="text-center p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-green-600">{externalPercentage}%</div>
-          <div className="text-sm text-muted-foreground">External Contributions</div>
+          <div className="text-2xl font-bold text-green-600">{communityPercentage}%</div>
+          <div className="text-sm text-muted-foreground">Community Contributions</div>
         </div>
         
         <div className="text-center p-4 rounded-lg bg-muted/50">
@@ -136,13 +136,13 @@ export function ActivityChart() {
           <div>
             <h4 className="font-medium">Community Impact</h4>
             <p className="text-sm text-muted-foreground">
-              {formatNumber(externalContributors.length)} external contributors have made{' '}
-              {formatNumber(totalExternalContributions)} contributions
+              {formatNumber(communityContributors.length)} contributors have made{' '}
+              {formatNumber(totalCommunityContributions)} contributions
             </p>
           </div>
           <div className="text-right">
             <div className="text-lg font-semibold text-primary">
-              {externalPercentage}%
+              {communityPercentage}%
             </div>
             <div className="text-xs text-muted-foreground">
               of all contributions
