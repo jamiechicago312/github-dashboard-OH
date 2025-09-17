@@ -12,8 +12,6 @@ interface EnhancedRepositoryMetricsProps {
 const TIME_RANGES: TimeRangeOption[] = [
   { label: 'All Time', value: 'all-time' },
   { label: '1 Year', value: '1-year', days: 365 },
-  { label: '6 Months', value: '6-months', days: 180 },
-  { label: '3 Months', value: '3-months', days: 90 },
   { label: '1 Month', value: '1-month', days: 30 },
   { label: '1 Week', value: '1-week', days: 7 },
   { label: '24 Hours', value: '24-hours', days: 1 },
