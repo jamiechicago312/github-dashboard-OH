@@ -112,19 +112,19 @@ After setup, you can test the database connection:
 
 2. **Test manual data collection**
    ```bash
-   curl -X POST http://localhost:3000/api/scheduler \
+   curl -X POST http://localhost:12000/api/scheduler \
      -H "Content-Type: application/json" \
      -d '{"action": "collect"}'
    ```
 
 3. **Check scheduler status**
    ```bash
-   curl http://localhost:3000/api/scheduler
+   curl http://localhost:12000/api/scheduler
    ```
 
 4. **View trends data**
    ```bash
-   curl "http://localhost:3000/api/github/trends?days=7"
+   curl "http://localhost:12000/api/github/trends?days=7"
    ```
 
 ## Step 7: Monitoring and Maintenance
@@ -205,7 +205,7 @@ After successful integration:
 
 1. **Set up automated scheduling**
    ```bash
-   curl -X POST http://localhost:3000/api/scheduler \
+   curl -X POST http://localhost:12000/api/scheduler \
      -H "Content-Type: application/json" \
      -d '{"action": "start"}'
    ```
