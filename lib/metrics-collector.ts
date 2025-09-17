@@ -24,70 +24,56 @@ export class MetricsCollector {
 
   /**
    * Collect current metrics and store them in the database
+   * This method collects ALL-TIME statistics as of the current snapshot date
    */
   async collectCurrentMetrics(): Promise<RepositoryMetricsRecord> {
-    console.log('🔄 Collecting current repository metrics...')
+    console.log('🔄 Collecting all-time repository metrics for daily snapshot...')
     
     try {
-      // Fetch current repository data with timeout and retry logic
-      const [repoInfo, contributors, issues, pullRequests, releases] = await this.fetchWithRetry([
-        () => GitHubAPI.getRepository(OWNER, REPO),
-        () => GitHubAPI.getAllRepositoryContributors(OWNER, REPO),
-        () => GitHubAPI.getRepositoryIssues(OWNER, REPO, 'all', 100),
-        () => GitHubAPI.getRepositoryPullRequests(OWNER, REPO, 'all', 100),
-        () => GitHubAPI.getRepositoryReleases(OWNER, REPO, 10)
-      ])
-
-      // Type the results properly
-      const repoData = repoInfo as GitHubRepository
-      const contributorsData = contributors as GitHubContributor[]
-      const issuesData = issues as GitHubIssue[]
-      const pullRequestsData = pullRequests as GitHubPullRequest[]
-      const releasesData = releases as GitHubRelease[]
-
-      // Count metrics
-      const openIssues = issuesData.filter((issue: GitHubIssue) => issue.state === 'open').length
-      const closedIssues = issuesData.filter((issue: GitHubIssue) => issue.state === 'closed').length
-      const openPRs = pullRequestsData.filter((pr: GitHubPullRequest) => pr.state === 'open').length
-      const closedPRs = pullRequestsData.filter((pr: GitHubPullRequest) => pr.state === 'closed').length
-      const mergedPRs = pullRequestsData.filter((pr: GitHubPullRequest) => pr.merged_at).length
-
-      // Get commit count (approximate from contributors)
-      const totalCommits = contributorsData.reduce((sum: number, contributor: GitHubContributor) => sum + contributor.contributions, 0)
+      // Use the new all-time statistics method to get accurate totals
+      const allTimeStats = await GitHubAPI.getAllTimeRepositoryStats(OWNER, REPO)
 
       const now = new Date()
       const metrics: Omit<RepositoryMetricsRecord, 'id' | 'created_at'> = {
         timestamp: now.getTime(),
         date: now.toISOString().split('T')[0], // YYYY-MM-DD format
-        stars: repoData.stargazers_count,
-        forks: repoData.forks_count,
-        contributors: contributorsData.length,
-        open_issues: openIssues,
-        closed_issues: closedIssues,
-        open_prs: openPRs,
-        closed_prs: closedPRs,
-        merged_prs: mergedPRs,
-        commits: totalCommits,
-        releases: releasesData.length
+        // All-time cumulative statistics
+        stars: allTimeStats.stars,
+        forks: allTimeStats.forks,
+        contributors: allTimeStats.contributors,
+        commits: allTimeStats.commits,
+        releases: allTimeStats.releases,
+        // All-time issue statistics
+        open_issues: allTimeStats.issues.open,
+        closed_issues: allTimeStats.issues.closed,
+        // All-time pull request statistics
+        open_prs: allTimeStats.pullRequests.open,
+        closed_prs: allTimeStats.pullRequests.closed,
+        merged_prs: allTimeStats.pullRequests.merged
+      }
+
+      // Validate the metrics before storing
+      if (!this.validateMetrics(metrics)) {
+        throw new Error('Invalid metrics data collected')
       }
 
       // Store in database
       await this.db.storeMetrics(metrics)
       
-      console.log('✅ Metrics collected and stored successfully:', {
+      console.log('✅ All-time metrics collected and stored successfully:', {
         date: metrics.date,
         stars: metrics.stars,
         forks: metrics.forks,
         contributors: metrics.contributors,
-        issues: `${metrics.open_issues} open, ${metrics.closed_issues} closed`,
-        prs: `${metrics.open_prs} open, ${metrics.closed_prs} closed, ${metrics.merged_prs} merged`,
         commits: metrics.commits,
-        releases: metrics.releases
+        releases: metrics.releases,
+        issues: `${metrics.open_issues} open, ${metrics.closed_issues} closed (${metrics.open_issues + metrics.closed_issues} total)`,
+        prs: `${metrics.open_prs} open, ${metrics.closed_prs} closed, ${metrics.merged_prs} merged (${metrics.open_prs + metrics.closed_prs} total)`
       })
 
       return { ...metrics, id: Date.now() } as RepositoryMetricsRecord
     } catch (error) {
-      console.error('❌ Error collecting metrics:', error)
+      console.error('❌ Error collecting all-time metrics:', error)
       throw error
     }
   }
@@ -147,83 +133,36 @@ export class MetricsCollector {
   }
 
   /**
-   * Fetch data with retry logic and error handling
-   */
-  private async fetchWithRetry(
-    fetchFunctions: (() => Promise<any>)[],
-    maxRetries: number = 3,
-    baseDelay: number = 1000
-  ): Promise<any[]> {
-    const results: any[] = []
-    
-    for (let i = 0; i < fetchFunctions.length; i++) {
-      const fetchFn = fetchFunctions[i]
-      let attempt = 0
-      let lastError: Error | null = null
-
-      while (attempt < maxRetries) {
-        try {
-          const result = await this.withTimeout(fetchFn(), 30000) // 30 second timeout
-          results.push(result)
-          break
-        } catch (error) {
-          attempt++
-          lastError = error as Error
-          
-          if (attempt < maxRetries) {
-            const delay = baseDelay * Math.pow(2, attempt - 1) // Exponential backoff
-            console.warn(`⚠️ Fetch attempt ${attempt} failed, retrying in ${delay}ms:`, error)
-            await this.sleep(delay)
-          }
-        }
-      }
-
-      if (attempt === maxRetries) {
-        throw new Error(`Failed to fetch data after ${maxRetries} attempts: ${lastError?.message}`)
-      }
-    }
-
-    return results
-  }
-
-  /**
-   * Add timeout to promises
-   */
-  private withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
-      )
-    ])
-  }
-
-  /**
-   * Utility function for delays
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
-  }
-
-  /**
    * Validate collected metrics data
    */
   private validateMetrics(metrics: Partial<RepositoryMetricsRecord>): boolean {
-    const required = ['stars', 'forks', 'contributors', 'open_issues', 'closed_issues']
+    const required = ['stars', 'forks', 'contributors', 'commits', 'releases', 'open_issues', 'closed_issues', 'open_prs', 'closed_prs', 'merged_prs']
     
     for (const field of required) {
-      if (typeof metrics[field as keyof RepositoryMetricsRecord] !== 'number') {
-        console.error(`❌ Invalid metrics: ${field} is not a number`)
+      const value = metrics[field as keyof RepositoryMetricsRecord]
+      if (typeof value !== 'number' || isNaN(value)) {
+        console.error(`❌ Invalid metrics: ${field} is not a valid number (got: ${value})`)
         return false
       }
     }
 
-    // Basic sanity checks
-    if (metrics.stars! < 0 || metrics.forks! < 0 || metrics.contributors! < 0) {
-      console.error('❌ Invalid metrics: negative values detected')
+    // Basic sanity checks for non-negative values
+    const nonNegativeFields = ['stars', 'forks', 'contributors', 'commits', 'releases', 'open_issues', 'closed_issues', 'open_prs', 'closed_prs', 'merged_prs']
+    for (const field of nonNegativeFields) {
+      const value = metrics[field as keyof RepositoryMetricsRecord] as number
+      if (value < 0) {
+        console.error(`❌ Invalid metrics: ${field} cannot be negative (got: ${value})`)
+        return false
+      }
+    }
+
+    // Logical consistency checks
+    if (metrics.merged_prs! > metrics.closed_prs!) {
+      console.error(`❌ Invalid metrics: merged PRs (${metrics.merged_prs}) cannot exceed closed PRs (${metrics.closed_prs})`)
       return false
     }
 
+    console.log('✅ Metrics validation passed')
     return true
   }
 

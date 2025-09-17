@@ -787,6 +787,186 @@ export class GitHubAPI {
   }
 
   /**
+   * Get accurate all-time issue counts using search API
+   */
+  static async getAllTimeIssueCounts(
+    owner: string,
+    repo: string
+  ): Promise<{ open: number; closed: number; total: number }> {
+    try {
+      const [openResult, closedResult] = await Promise.all([
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:issue state:open`,
+          per_page: 1
+        }),
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:issue state:closed`,
+          per_page: 1
+        })
+      ])
+
+      const openCount = openResult.total_count || 0
+      const closedCount = closedResult.total_count || 0
+
+      return {
+        open: openCount,
+        closed: closedCount,
+        total: openCount + closedCount
+      }
+    } catch (error) {
+      console.error('Error getting all-time issue counts:', error)
+      return { open: 0, closed: 0, total: 0 }
+    }
+  }
+
+  /**
+   * Get accurate all-time pull request counts using search API
+   */
+  static async getAllTimePullRequestCounts(
+    owner: string,
+    repo: string
+  ): Promise<{ open: number; closed: number; merged: number; total: number }> {
+    try {
+      const [openResult, closedResult, mergedResult] = await Promise.all([
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr state:open`,
+          per_page: 1
+        }),
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr state:closed`,
+          per_page: 1
+        }),
+        fetchGitHub('/search/issues', {
+          q: `repo:${owner}/${repo} type:pr is:merged`,
+          per_page: 1
+        })
+      ])
+
+      const openCount = openResult.total_count || 0
+      const closedCount = closedResult.total_count || 0
+      const mergedCount = mergedResult.total_count || 0
+
+      return {
+        open: openCount,
+        closed: closedCount,
+        merged: mergedCount,
+        total: openCount + closedCount
+      }
+    } catch (error) {
+      console.error('Error getting all-time PR counts:', error)
+      return { open: 0, closed: 0, merged: 0, total: 0 }
+    }
+  }
+
+  /**
+   * Get accurate all-time commit count using search API
+   */
+  static async getAllTimeCommitCount(
+    owner: string,
+    repo: string
+  ): Promise<number> {
+    try {
+      // Use search API to get total commit count
+      const result = await fetchGitHub('/search/commits', {
+        q: `repo:${owner}/${repo}`,
+        per_page: 1
+      })
+
+      return result.total_count || 0
+    } catch (error) {
+      console.error('Error getting all-time commit count:', error)
+      // Fallback to contributor contributions sum
+      try {
+        const contributors = await this.getAllRepositoryContributors(owner, repo, 20)
+        return contributors.reduce((sum, contributor) => sum + contributor.contributions, 0)
+      } catch (fallbackError) {
+        console.error('Error getting commit count from contributors:', fallbackError)
+        return 0
+      }
+    }
+  }
+
+  /**
+   * Get comprehensive all-time repository statistics
+   */
+  static async getAllTimeRepositoryStats(
+    owner: string,
+    repo: string
+  ): Promise<{
+    stars: number
+    forks: number
+    contributors: number
+    commits: number
+    releases: number
+    issues: { open: number; closed: number; total: number }
+    pullRequests: { open: number; closed: number; merged: number; total: number }
+  }> {
+    try {
+      console.log(`🔍 Fetching all-time statistics for ${owner}/${repo}`)
+
+      const [
+        repository,
+        contributors,
+        releases,
+        issueCounts,
+        prCounts,
+        commitCount
+      ] = await Promise.allSettled([
+        this.getRepository(owner, repo),
+        this.getAllRepositoryContributors(owner, repo, 20),
+        this.getAllRepositoryReleases(owner, repo, 20),
+        this.getAllTimeIssueCounts(owner, repo),
+        this.getAllTimePullRequestCounts(owner, repo),
+        this.getAllTimeCommitCount(owner, repo)
+      ])
+
+      const getResult = <T>(result: PromiseSettledResult<T>, fallback: T): T => {
+        return result.status === 'fulfilled' ? result.value : fallback
+      }
+
+      const repoData = getResult(repository, { stargazers_count: 0, forks_count: 0 } as any)
+      const contributorsData = getResult(contributors, [])
+      const releasesData = getResult(releases, [])
+      const issueData = getResult(issueCounts, { open: 0, closed: 0, total: 0 })
+      const prData = getResult(prCounts, { open: 0, closed: 0, merged: 0, total: 0 })
+      const commitData = getResult(commitCount, 0)
+
+      const stats = {
+        stars: repoData.stargazers_count,
+        forks: repoData.forks_count,
+        contributors: contributorsData.length,
+        commits: commitData,
+        releases: releasesData.length,
+        issues: issueData,
+        pullRequests: prData
+      }
+
+      console.log('✅ All-time statistics collected:', {
+        stars: stats.stars,
+        forks: stats.forks,
+        contributors: stats.contributors,
+        commits: stats.commits,
+        releases: stats.releases,
+        issues: `${stats.issues.open} open, ${stats.issues.closed} closed, ${stats.issues.total} total`,
+        prs: `${stats.pullRequests.open} open, ${stats.pullRequests.closed} closed, ${stats.pullRequests.merged} merged, ${stats.pullRequests.total} total`
+      })
+
+      return stats
+    } catch (error) {
+      console.error('Error getting all-time repository stats:', error)
+      return {
+        stars: 0,
+        forks: 0,
+        contributors: 0,
+        commits: 0,
+        releases: 0,
+        issues: { open: 0, closed: 0, total: 0 },
+        pullRequests: { open: 0, closed: 0, merged: 0, total: 0 }
+      }
+    }
+  }
+
+  /**
    * Get rate limit information
    */
   static async getRateLimit(): Promise<{
