@@ -58,7 +58,6 @@ export function DashboardOverview() {
   const {
     repository,
     contributors,
-    communityContributors,
     firstTimeContributors,
     agentContributors,
     totalAgentContributions,
@@ -112,12 +111,6 @@ export function DashboardOverview() {
       icon: Users,
       description: 'Total contributors',
       trend: trends?.contributors ? getTrendIndicator(trends.contributors.change, trends.contributors.changePercent) : null,
-    },
-    {
-      title: 'Contributors',
-      value: formatNumber(communityContributors.length),
-      icon: Activity,
-      description: 'Community contributors',
     },
     {
       title: 'OpenHands Agent',
