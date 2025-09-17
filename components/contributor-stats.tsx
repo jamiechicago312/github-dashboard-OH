@@ -39,7 +39,7 @@ export function ContributorStats() {
   const { communityContributors } = data
 
   // Sort community contributors by contributions
-  const topCommunityContributors = communityContributors
+  const topCommunityContributors = (communityContributors || [])
     .sort((a, b) => b.contributions - a.contributions)
     .slice(0, 10)
 
