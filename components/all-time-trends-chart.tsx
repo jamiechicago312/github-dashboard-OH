@@ -27,10 +27,10 @@ function generateHistoricalData() {
       stars: Math.floor(45000 + (baseMonth * 1200) + (Math.random() * 800)),
       forks: Math.floor(8000 + (baseMonth * 150) + (Math.random() * 100)),
       commits: Math.floor(15000 + (baseMonth * 800) + (Math.random() * 400)),
-      contributors: Math.floor(800 + (baseMonth * 25) + (Math.random() * 15)),
+      prs_closed: Math.floor(2000 + (baseMonth * 80) + (Math.random() * 40)), // Moved to left axis as cumulative
       
       // Right Y-axis (Bars) - Lower volume metrics  
-      prs_closed: Math.floor(80 + (Math.random() * 40)),
+      contributors: Math.floor(25 + (Math.random() * 15)), // Monthly new contributors
       issues_closed: Math.floor(120 + (Math.random() * 60))
     })
   }
@@ -120,8 +120,8 @@ export default function AllTimeTrendsChart() {
                   stars: 'Stars',
                   forks: 'Forks', 
                   commits: 'Commits',
-                  contributors: 'Contributors',
-                  prs_closed: 'PRs Closed',
+                  prs_closed: 'PRs Closed (Total)',
+                  contributors: 'New Contributors',
                   issues_closed: 'Issues Closed'
                 }
                 return [typeof value === 'number' ? value.toLocaleString() : value, labels[name] || name]
@@ -164,20 +164,20 @@ export default function AllTimeTrendsChart() {
             <Line 
               yAxisId="left"
               type="monotone" 
-              dataKey="contributors" 
-              stroke="#8b5cf6" 
+              dataKey="prs_closed" 
+              stroke="#ef4444" 
               strokeWidth={2}
-              dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
-              name="Contributors"
+              dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
+              name="PRs Closed"
             />
             
             {/* Bars for low-volume metrics (Right Y-axis) */}
             <Bar 
               yAxisId="right"
-              dataKey="prs_closed" 
-              fill="#ef4444" 
+              dataKey="contributors" 
+              fill="#8b5cf6" 
               fillOpacity={0.7}
-              name="PRs Closed"
+              name="Contributors"
             />
             <Bar 
               yAxisId="right"
@@ -192,7 +192,7 @@ export default function AllTimeTrendsChart() {
 
       {/* Legend explanation */}
       <div className="mt-4 text-xs text-muted-foreground text-center">
-        <p>Lines (left axis): High-volume cumulative metrics • Bars (right axis): Monthly activity metrics</p>
+        <p>Lines (left axis): Cumulative growth metrics • Bars (right axis): Monthly activity metrics</p>
       </div>
     </div>
   )
