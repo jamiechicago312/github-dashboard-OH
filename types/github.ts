@@ -50,7 +50,7 @@ export interface GitHubContributor {
   name?: string
   company?: string
   location?: string
-  isExternal?: boolean
+  isCommunity?: boolean
   isAgent?: boolean
 }
 
@@ -226,7 +226,7 @@ export interface DashboardData {
   repository: GitHubRepository
   organization: GitHubUser
   contributors: GitHubContributor[]
-  externalContributors: GitHubContributor[]
+  communityContributors: GitHubContributor[]
   firstTimeContributors: GitHubContributor[]
   firstTimeContributorsCount: number // Count from latest release
   agentContributors: GitHubContributor[]

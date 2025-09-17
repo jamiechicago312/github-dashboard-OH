@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { GitHubAPI } from '@/lib/github-api'
 import { DashboardData } from '@/types/github'
-import { isExternalContributor } from '@/lib/utils'
+import { isCommunityContributor } from '@/lib/utils'
 import { SimpleCache } from '@/lib/simple-cache'
 
 const OWNER = 'All-Hands-AI'
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     // Identify top contributors (excluding All-Hands-AI members)
     const orgMemberLogins = orgMembers.map(member => member.login.toLowerCase())
     const topContributors = contributors
-      .filter(contributor => isExternalContributor(contributor, orgMemberLogins))
+      .filter(contributor => isCommunityContributor(contributor, orgMemberLogins))
       .sort((a, b) => b.contributions - a.contributions)
       .slice(0, 20)
 
@@ -73,13 +73,13 @@ export async function GET(request: Request) {
     console.log(`Found ${newContributorsFromRelease.length} new contributors from latest release`)
     console.log(`Found ${recentFirstTimeContributors.length} recent first-time contributors`)
 
-    // Get detailed contributor information for external contributors (prioritizing main branch approach)
-    const detailedExternalContributors = await GitHubAPI.getContributorDetails(topContributors)
+    // Get detailed contributor information for community contributors (prioritizing main branch approach)
+    const detailedCommunityContributors = await GitHubAPI.getContributorDetails(topContributors)
 
-    // Mark external contributors
+    // Mark community contributors
     const allContributorsWithFlags = contributors.map(contributor => ({
       ...contributor,
-      isExternal: isExternalContributor(contributor, orgMemberLogins),
+      isCommunity: isCommunityContributor(contributor, orgMemberLogins),
       isAgent: openHandsAgents.includes(contributor.login.toLowerCase()),
     }))
 
@@ -117,7 +117,7 @@ export async function GET(request: Request) {
       repository,
       organization,
       contributors: allContributorsWithFlags,
-      externalContributors: detailedExternalContributors,
+      communityContributors: detailedCommunityContributors,
       firstTimeContributors: recentFirstTimeContributors,
       firstTimeContributorsCount: newContributorsFromRelease.length, // Count from latest release
       agentContributors,
