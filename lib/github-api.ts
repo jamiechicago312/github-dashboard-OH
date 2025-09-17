@@ -910,23 +910,16 @@ export class GitHubAPI {
     repo: string
   ): Promise<number> {
     try {
-      // Use search API to get total commit count
-      const result = await fetchGitHub('/search/commits', {
-        q: `repo:${owner}/${repo}`,
-        per_page: 1
-      })
-
-      return result.total_count || 0
+      // Use contributor contributions sum as the most reliable method
+      const contributors = await this.getAllRepositoryContributors(owner, repo, 100)
+      const totalCommits = contributors.reduce((sum, contributor) => sum + contributor.contributions, 0)
+      
+      console.log(`Total commits from contributors: ${totalCommits}`)
+      return totalCommits
     } catch (error) {
       console.error('Error getting all-time commit count:', error)
-      // Fallback to contributor contributions sum
-      try {
-        const contributors = await this.getAllRepositoryContributors(owner, repo, 20)
-        return contributors.reduce((sum, contributor) => sum + contributor.contributions, 0)
-      } catch (fallbackError) {
-        console.error('Error getting commit count from contributors:', fallbackError)
-        return 0
-      }
+      // Final fallback - return 0
+      return 0
     }
   }
 

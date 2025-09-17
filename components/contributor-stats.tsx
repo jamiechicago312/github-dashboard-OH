@@ -51,7 +51,7 @@ export function ContributorStats() {
           <span>Top Community Contributors</span>
         </h3>
         <div className="text-sm text-muted-foreground">
-          {formatNumber(communityContributors.length)} total contributors
+          {formatNumber((communityContributors || []).length)} total contributors
         </div>
       </div>
 
