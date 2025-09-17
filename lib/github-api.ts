@@ -402,8 +402,8 @@ export class GitHubAPI {
 
   /**
    * Get the most recent first-time contributors chronologically
-   * This finds contributors who made their first contribution recently by checking recent commits
-   * and filtering out those who have contributed before
+   * This uses GitHub release notes to identify true first-time contributors
+   * by parsing the "New Contributors" sections from recent releases
    */
   static async getRecentFirstTimeContributors(
     owner: string,
@@ -411,75 +411,104 @@ export class GitHubAPI {
     limit = 20
   ): Promise<GitHubContributor[]> {
     try {
-      console.log('Getting recent first-time contributors...')
+      console.log('Getting recent first-time contributors from release notes...')
       
-      // Get recent commits (last 3 months)
-      const threeMonthsAgo = new Date()
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+      // Get recent releases (last 10 releases to capture more first-time contributors)
+      const releases = await this.getRepositoryReleases(owner, repo, 1, 10)
+      console.log(`Analyzing ${releases.length} recent releases for first-time contributors`)
       
-      const recentCommits = await this.getRepositoryCommits(owner, repo, threeMonthsAgo.toISOString(), 1, 300)
-      console.log(`Analyzing ${recentCommits.length} commits from last 3 months`)
+      // Track first-time contributors with their release date
+      const firstTimeContributorsMap = new Map<string, { 
+        username: string, 
+        releaseDate: string, 
+        releaseTag: string 
+      }>()
       
-      // Get all contributors to see who has contributed before
-      const allContributors = await this.getAllRepositoryContributors(owner, repo, 200)
-      const contributorMap = new Map(allContributors.map(c => [c.login, c]))
+      // Process releases from oldest to newest to get the earliest mention of each contributor
+      const sortedReleases = releases.sort((a, b) => 
+        new Date(a.published_at || a.created_at).getTime() - new Date(b.published_at || b.created_at).getTime()
+      )
       
-      // Track potential first-time contributors from recent commits
-      const recentContributorFirstCommit = new Map<string, { date: string, contributor: GitHubContributor }>()
-      
-      // Process recent commits to find contributors
-      for (const commit of recentCommits) {
-        const authorLogin = commit.author?.login
-        if (authorLogin && contributorMap.has(authorLogin)) {
-          const contributor = contributorMap.get(authorLogin)!
+      for (const release of sortedReleases) {
+        const releaseBody = release.body || ''
+        const releaseDate = release.published_at || release.created_at
+        
+        console.log(`Parsing release ${release.tag_name} for new contributors`)
+        
+        // Extract new contributors section from release notes
+        const newContributorsMatch = releaseBody.match(/## New Contributors\s*([\s\S]*?)(?=\n##|\*\*Full Changelog\*\*|$)/i)
+        
+        if (newContributorsMatch) {
+          const newContributorsSection = newContributorsMatch[1]
           
-          // If we haven't seen this contributor in recent commits yet, record their earliest recent commit
-          if (!recentContributorFirstCommit.has(authorLogin)) {
-            recentContributorFirstCommit.set(authorLogin, {
-              date: commit.commit.author.date,
-              contributor
-            })
-          } else {
-            // Update if this commit is earlier than the one we have
-            const existing = recentContributorFirstCommit.get(authorLogin)!
-            if (new Date(commit.commit.author.date) < new Date(existing.date)) {
-              recentContributorFirstCommit.set(authorLogin, {
-                date: commit.commit.author.date,
-                contributor
-              })
+          // Extract usernames from lines like "* @username made their first contribution in https://github.com/..."
+          const usernameMatches = newContributorsSection.match(/@([a-zA-Z0-9_-]+)/g)
+          
+          if (usernameMatches) {
+            // Remove @ symbol and get unique usernames
+            const usernames = Array.from(new Set(usernameMatches.map(match => match.substring(1))))
+            
+            console.log(`Found ${usernames.length} new contributors in ${release.tag_name}: ${usernames.join(', ')}`)
+            
+            // Add to map (only if not already present - keeps the earliest release)
+            for (const username of usernames) {
+              if (!firstTimeContributorsMap.has(username)) {
+                firstTimeContributorsMap.set(username, {
+                  username,
+                  releaseDate,
+                  releaseTag: release.tag_name
+                })
+              }
             }
           }
         }
       }
       
-      console.log(`Found ${recentContributorFirstCommit.size} contributors in recent commits`)
+      console.log(`Found ${firstTimeContributorsMap.size} unique first-time contributors across all releases`)
       
-      // For each recent contributor, check if they might be first-time by looking at their contribution count
-      // and checking if they have very few contributions (indicating they're new)
-      const potentialFirstTimeContributors: (GitHubContributor & { firstCommitDate: string })[] = []
-      
-      for (const [login, { date, contributor }] of recentContributorFirstCommit.entries()) {
-        // Consider contributors with 5 or fewer contributions as potentially new
-        // This catches both truly new contributors and those who are still relatively new
-        if (contributor.contributions <= 5) {
-          potentialFirstTimeContributors.push({
-            ...contributor,
-            firstCommitDate: date
-          })
-        }
+      if (firstTimeContributorsMap.size === 0) {
+        console.log('No first-time contributors found in release notes')
+        return []
       }
       
-      console.log(`Found ${potentialFirstTimeContributors.length} potential first-time contributors`)
+      // Get detailed contributor information
+      const contributorDetails = await Promise.allSettled(
+        Array.from(firstTimeContributorsMap.values()).map(async ({ username, releaseDate, releaseTag }) => {
+          try {
+            const user = await this.getUser(username)
+            return {
+              id: user.id,
+              login: user.login,
+              avatar_url: user.avatar_url,
+              html_url: user.html_url,
+              contributions: 1, // First-time contributors start with 1
+              type: user.type === 'Organization' ? 'Bot' : 'User',
+              name: user.name,
+              company: user.company,
+              location: user.location,
+              releaseDate,
+              releaseTag
+            } as GitHubContributor & { releaseDate: string, releaseTag: string }
+          } catch (error) {
+            console.error(`Failed to fetch details for contributor ${username}:`, error)
+            return null
+          }
+        })
+      )
       
-      // Sort by most recent first contribution and limit results
-      const sortedContributors = potentialFirstTimeContributors
-        .sort((a, b) => new Date(b.firstCommitDate).getTime() - new Date(a.firstCommitDate).getTime())
+      // Filter out failed requests and sort by most recent release date
+      const validContributors = contributorDetails
+        .filter((result): result is PromiseFulfilledResult<GitHubContributor & { releaseDate: string, releaseTag: string }> => 
+          result.status === 'fulfilled' && result.value !== null
+        )
+        .map(result => result.value)
+        .sort((a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime())
         .slice(0, limit)
       
-      // Remove the temporary firstCommitDate property
-      const result = sortedContributors.map(({ firstCommitDate, ...contributor }) => contributor)
+      // Remove temporary properties
+      const result = validContributors.map(({ releaseDate, releaseTag, ...contributor }) => contributor)
       
-      console.log(`Returning ${result.length} recent first-time contributors`)
+      console.log(`Returning ${result.length} recent first-time contributors from release notes`)
       
       return result
     } catch (error) {
