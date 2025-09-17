@@ -123,7 +123,7 @@ export function ContributorStats() {
         ))}
       </div>
 
-      {communityContributors.length === 0 && (
+      {(communityContributors || []).length === 0 && (
         <div className="text-center text-muted-foreground py-8">
           <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>No community contributors found</p>
