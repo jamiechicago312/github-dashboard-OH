@@ -717,6 +717,50 @@ export class GitHubAPI {
     until?: string
   ): Promise<RepositoryStats> {
     try {
+      // For all-time data (no since/until), use accurate count methods
+      if (!since && !until) {
+        console.log('Calculating all-time repository stats using accurate count methods...')
+        const [
+          repository,
+          contributors,
+          branches,
+          releases,
+          issueCounts,
+          prCounts,
+          commitCount
+        ] = await Promise.allSettled([
+          this.getRepository(owner, repo),
+          this.getAllRepositoryContributors(owner, repo, 5),
+          fetchGitHub(`/repos/${owner}/${repo}/branches`, { per_page: 100 }),
+          this.getRepositoryReleases(owner, repo, 1, 100),
+          this.getAllTimeIssueCounts(owner, repo),
+          this.getAllTimePullRequestCounts(owner, repo),
+          this.getAllTimeCommitCount(owner, repo)
+        ])
+
+        const getResult = <T>(result: PromiseSettledResult<T>, fallback: T): T => {
+          return result.status === 'fulfilled' ? result.value : fallback
+        }
+
+        const repoData = getResult(repository, {} as any)
+        const contributorsData = getResult(contributors, [])
+        const branchesData = getResult(branches, [])
+        const releasesData = getResult(releases, [])
+        const issueData = getResult(issueCounts, { open: 0, closed: 0, total: 0 })
+        const prData = getResult(prCounts, { open: 0, closed: 0, merged: 0, total: 0 })
+        const commitData = getResult(commitCount, 0)
+
+        return {
+          contributors: contributorsData.length,
+          commits: commitData,
+          branches: Array.isArray(branchesData) ? branchesData.length : 0,
+          releases: Array.isArray(releasesData) ? releasesData.length : 0,
+          issues: issueData,
+          pullRequests: prData
+        }
+      }
+
+      // For time-range data, use the existing method with actual data fetching
       const [
         repository,
         contributors,
