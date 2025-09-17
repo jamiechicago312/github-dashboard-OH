@@ -59,6 +59,7 @@ export function DashboardOverview() {
     repository,
     contributors,
     firstTimeContributors,
+    firstTimeContributorsCount,
     agentContributors,
     totalAgentContributions
   } = data
@@ -120,9 +121,9 @@ export function DashboardOverview() {
     },
     {
       title: 'First-Time Contributors',
-      value: formatNumber(firstTimeContributors.length),
+      value: formatNumber(firstTimeContributorsCount),
       icon: UserPlus,
-      description: 'New contributors',
+      description: 'Since latest release',
     },
   ]
 
