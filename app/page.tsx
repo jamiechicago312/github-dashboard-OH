@@ -3,7 +3,7 @@ import { DashboardOverview } from '@/components/dashboard-overview'
 import { ContributorStats } from '@/components/contributor-stats'
 import EnhancedRepositoryMetrics from '@/components/enhanced-repository-metrics'
 import { ActivityChart } from '@/components/activity-chart'
-import GranularActivityOverview from '@/components/granular-activity-overview'
+import AllTimeTrendsChart from '@/components/all-time-trends-chart'
 import { LoadingCard } from '@/components/loading-card'
 
 export default function HomePage() {
@@ -44,9 +44,9 @@ export default function HomePage() {
         </Suspense>
       </div>
 
-      {/* Granular Activity Overview */}
+      {/* All-Time Trends Chart */}
       <Suspense fallback={<LoadingCard />}>
-        <GranularActivityOverview />
+        <AllTimeTrendsChart />
       </Suspense>
 
       {/* Activity Chart */}
