@@ -27,6 +27,19 @@ function getDateRange(timeRange: string): { since?: string; until?: string } {
   }
 }
 
+function filterReleasesByDateRange(releases: any[], since?: string, until?: string): any[] {
+  if (!since || !until) return releases
+  
+  const sinceDate = new Date(since)
+  const untilDate = new Date(until)
+  
+  return releases.filter(release => {
+    // Use published_at if available, otherwise fall back to created_at
+    const releaseDate = new Date(release.published_at || release.created_at)
+    return releaseDate >= sinceDate && releaseDate <= untilDate
+  })
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
@@ -45,13 +58,22 @@ export async function GET(request: NextRequest) {
     const { since, until } = getDateRange(timeRange)
     
     // Fetch time-based data
-    const [stats, commits, pullRequests, issues, releases] = await Promise.allSettled([
+    const [stats, commits, pullRequests, issues, allReleases] = await Promise.allSettled([
       GitHubAPI.calculateRepositoryStatsForRange(OWNER, REPO, since, until),
       since ? GitHubAPI.getRepositoryCommitsInRange(OWNER, REPO, since, until, 5) : [],
       since ? GitHubAPI.getRepositoryPullRequestsInRange(OWNER, REPO, 'all', since, until, 5) : [],
       since ? GitHubAPI.getRepositoryIssuesInRange(OWNER, REPO, 'all', since, until, 5) : [],
-      since ? GitHubAPI.getRepositoryReleases(OWNER, REPO, 1, 20) : GitHubAPI.getRepositoryReleases(OWNER, REPO, 1, 20)
+      GitHubAPI.getRepositoryReleases(OWNER, REPO, 1, 50) // Get more releases to filter from
     ])
+
+    // Filter releases by date range if needed
+    const releasesResult = allReleases.status === 'fulfilled' ? allReleases.value : []
+    const filteredReleases = since ? filterReleasesByDateRange(releasesResult, since, until) : releasesResult
+    
+    console.log(`Releases: ${releasesResult.length} total, ${filteredReleases.length} in range ${timeRange}`)
+    if (since) {
+      console.log(`Date range: ${since} to ${until}`)
+    }
 
     const getResult = <T>(result: PromiseSettledResult<T>, fallback: T): T => {
       return result.status === 'fulfilled' ? result.value : fallback
@@ -70,7 +92,7 @@ export async function GET(request: NextRequest) {
       commits: getResult(commits, []),
       pullRequests: getResult(pullRequests, []),
       issues: getResult(issues, []),
-      releases: getResult(releases, [])
+      releases: filteredReleases
     }
 
     console.log(`Successfully fetched metrics for ${timeRange}`)
