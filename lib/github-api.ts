@@ -402,7 +402,8 @@ export class GitHubAPI {
 
   /**
    * Get the most recent first-time contributors chronologically
-   * This identifies contributors with exactly 1 contribution and sorts them by most recent activity
+   * This finds contributors who made their first contribution recently by checking recent commits
+   * and filtering out those who have contributed before
    */
   static async getRecentFirstTimeContributors(
     owner: string,
@@ -412,44 +413,73 @@ export class GitHubAPI {
     try {
       console.log('Getting recent first-time contributors...')
       
-      // Get all contributors
-      const allContributors = await this.getAllRepositoryContributors(owner, repo, 20)
+      // Get recent commits (last 3 months)
+      const threeMonthsAgo = new Date()
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
       
-      // Filter to only first-time contributors (exactly 1 contribution)
-      const firstTimeContributors = allContributors.filter(contributor => contributor.contributions === 1)
+      const recentCommits = await this.getRepositoryCommits(owner, repo, threeMonthsAgo.toISOString(), 1, 300)
+      console.log(`Analyzing ${recentCommits.length} commits from last 3 months`)
       
-      console.log(`Found ${firstTimeContributors.length} first-time contributors`)
+      // Get all contributors to see who has contributed before
+      const allContributors = await this.getAllRepositoryContributors(owner, repo, 200)
+      const contributorMap = new Map(allContributors.map(c => [c.login, c]))
       
-      if (firstTimeContributors.length === 0) {
-        return []
-      }
-
-      // Get recent commits to find the most recent activity for each first-time contributor
-      const recentCommits = await this.getRepositoryCommits(owner, repo, undefined, 1, 100) // Get last 100 commits
+      // Track potential first-time contributors from recent commits
+      const recentContributorFirstCommit = new Map<string, { date: string, contributor: GitHubContributor }>()
       
-      // Create a map of contributor login to their most recent commit date
-      const contributorLastCommitMap = new Map<string, string>()
-      
+      // Process recent commits to find contributors
       for (const commit of recentCommits) {
         const authorLogin = commit.author?.login
-        if (authorLogin && !contributorLastCommitMap.has(authorLogin)) {
-          contributorLastCommitMap.set(authorLogin, commit.commit.author.date)
+        if (authorLogin && contributorMap.has(authorLogin)) {
+          const contributor = contributorMap.get(authorLogin)!
+          
+          // If we haven't seen this contributor in recent commits yet, record their earliest recent commit
+          if (!recentContributorFirstCommit.has(authorLogin)) {
+            recentContributorFirstCommit.set(authorLogin, {
+              date: commit.commit.author.date,
+              contributor
+            })
+          } else {
+            // Update if this commit is earlier than the one we have
+            const existing = recentContributorFirstCommit.get(authorLogin)!
+            if (new Date(commit.commit.author.date) < new Date(existing.date)) {
+              recentContributorFirstCommit.set(authorLogin, {
+                date: commit.commit.author.date,
+                contributor
+              })
+            }
+          }
         }
       }
       
-      // Add commit dates to first-time contributors and sort by most recent
-      const contributorsWithDates = firstTimeContributors
-        .map(contributor => ({
-          ...contributor,
-          lastCommitDate: contributorLastCommitMap.get(contributor.login) || '1970-01-01T00:00:00Z'
-        }))
-        .sort((a, b) => new Date(b.lastCommitDate).getTime() - new Date(a.lastCommitDate).getTime())
+      console.log(`Found ${recentContributorFirstCommit.size} contributors in recent commits`)
+      
+      // For each recent contributor, check if they might be first-time by looking at their contribution count
+      // and checking if they have very few contributions (indicating they're new)
+      const potentialFirstTimeContributors: (GitHubContributor & { firstCommitDate: string })[] = []
+      
+      for (const [login, { date, contributor }] of recentContributorFirstCommit.entries()) {
+        // Consider contributors with 5 or fewer contributions as potentially new
+        // This catches both truly new contributors and those who are still relatively new
+        if (contributor.contributions <= 5) {
+          potentialFirstTimeContributors.push({
+            ...contributor,
+            firstCommitDate: date
+          })
+        }
+      }
+      
+      console.log(`Found ${potentialFirstTimeContributors.length} potential first-time contributors`)
+      
+      // Sort by most recent first contribution and limit results
+      const sortedContributors = potentialFirstTimeContributors
+        .sort((a, b) => new Date(b.firstCommitDate).getTime() - new Date(a.firstCommitDate).getTime())
         .slice(0, limit)
       
-      // Remove the temporary lastCommitDate property
-      const result = contributorsWithDates.map(({ lastCommitDate, ...contributor }) => contributor)
+      // Remove the temporary firstCommitDate property
+      const result = sortedContributors.map(({ firstCommitDate, ...contributor }) => contributor)
       
-      console.log(`Returning ${result.length} most recent first-time contributors`)
+      console.log(`Returning ${result.length} recent first-time contributors`)
       
       return result
     } catch (error) {
