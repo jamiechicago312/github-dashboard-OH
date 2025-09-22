@@ -190,7 +190,7 @@ class DataCollectionScheduler {
   private async performCleanup(): Promise<void> {
     try {
       console.log('🧹 Starting scheduled database cleanup...')
-      this.collector.cleanupOldMetrics(this.config.retentionDays)
+      await this.collector.cleanupOldMetrics(this.config.retentionDays)
       console.log(`✅ Cleanup completed - retained last ${this.config.retentionDays} days`)
     } catch (error) {
       console.error('❌ Cleanup failed:', error)
