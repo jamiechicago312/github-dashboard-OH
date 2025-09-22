@@ -45,6 +45,7 @@ describe('GitHub Actions Configuration', () => {
     expect(stepNames).toContain('Run type checking');
     expect(stepNames).toContain('Run tests');
     expect(stepNames).toContain('Build application');
+    expect(stepNames).toContain('Run security audit');
   });
 
   test('Branch protection workflow exists and is valid', () => {
@@ -58,28 +59,29 @@ describe('GitHub Actions Configuration', () => {
     expect(workflow.on).toBeDefined();
     expect(workflow.jobs).toBeDefined();
     
-    // Check that it runs on main branch pushes
-    expect(workflow.on.push.branches).toContain('main');
-    
-    // Check that it has a scheduled run
+    // Check that it has a scheduled run (weekly maintenance)
     expect(workflow.on.schedule).toBeDefined();
     expect(workflow.on.schedule[0].cron).toBeDefined();
+    
+    // Check that validation job exists
+    expect(workflow.jobs['validate-protection']).toBeDefined();
   });
 
-  test('Security workflow exists and is valid', () => {
-    const securityPath = path.join(workflowsDir, 'security.yml');
-    expect(fs.existsSync(securityPath)).toBe(true);
+  test('Security audit is integrated into CI workflow', () => {
+    const ciWorkflowPath = path.join(workflowsDir, 'ci.yml');
+    const ciContent = fs.readFileSync(ciWorkflowPath, 'utf8');
+    const ciWorkflow = yaml.load(ciContent) as any;
     
-    const content = fs.readFileSync(securityPath, 'utf8');
-    const workflow = yaml.load(content) as any;
+    // Check that security audit step exists in CI workflow
+    const testSteps = ciWorkflow.jobs.test.steps;
+    const stepNames = testSteps.map((step: any) => step.name);
     
-    expect(workflow.name).toBe('Security');
-    expect(workflow.on).toBeDefined();
-    expect(workflow.jobs).toBeDefined();
+    expect(stepNames).toContain('Run security audit');
     
-    // Check that security audit job exists
-    expect(workflow.jobs['security-audit']).toBeDefined();
-    expect(workflow.jobs['dependency-check']).toBeDefined();
+    // Verify the security audit step configuration
+    const securityStep = testSteps.find((step: any) => step.name === 'Run security audit');
+    expect(securityStep.run).toContain('npm audit');
+    expect(securityStep['continue-on-error']).toBe(true);
   });
 
   test('Pull request template exists', () => {
