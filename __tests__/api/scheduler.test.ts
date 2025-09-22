@@ -7,8 +7,34 @@ import MetricsCollector from '@/lib/metrics-collector'
 jest.mock('@/lib/scheduler')
 jest.mock('@/lib/metrics-collector')
 
+// Mock NextResponse
+jest.mock('next/server', () => ({
+  NextRequest: jest.fn(),
+  NextResponse: {
+    json: jest.fn((data, init) => ({
+      json: async () => data,
+      status: init?.status || 200,
+      headers: new Headers(),
+    })),
+  },
+}))
+
 const mockScheduler = DataCollectionScheduler as jest.Mocked<typeof DataCollectionScheduler>
 const mockMetricsCollector = MetricsCollector as jest.Mocked<typeof MetricsCollector>
+
+// Mock NextRequest to avoid constructor issues
+const mockNextRequest = {
+  method: 'GET',
+  url: 'http://localhost/api/scheduler',
+  headers: new Headers(),
+  json: jest.fn(),
+  text: jest.fn(),
+} as unknown as NextRequest
+
+// Helper function to create NextRequest
+function createRequest(method: string = 'GET'): NextRequest {
+  return { ...mockNextRequest, method } as NextRequest
+}
 
 // Mock console methods
 const originalConsole = console

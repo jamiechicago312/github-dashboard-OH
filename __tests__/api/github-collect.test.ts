@@ -5,7 +5,33 @@ import metricsCollector from '@/lib/metrics-collector'
 // Mock dependencies
 jest.mock('@/lib/metrics-collector')
 
+// Mock NextResponse
+jest.mock('next/server', () => ({
+  NextRequest: jest.fn(),
+  NextResponse: {
+    json: jest.fn((data, init) => ({
+      json: async () => data,
+      status: init?.status || 200,
+      headers: new Headers(),
+    })),
+  },
+}))
+
 const mockMetricsCollector = metricsCollector as jest.Mocked<typeof metricsCollector>
+
+// Mock NextRequest to avoid constructor issues
+const mockNextRequest = {
+  method: 'GET',
+  url: 'http://localhost/api/github/collect',
+  headers: new Headers(),
+  json: jest.fn(),
+  text: jest.fn(),
+} as unknown as NextRequest
+
+// Helper function to create NextRequest
+function createRequest(method: string = 'GET'): NextRequest {
+  return { ...mockNextRequest, method } as NextRequest
+}
 
 // Mock console methods
 const originalConsole = console
@@ -44,7 +70,7 @@ describe('/api/github/collect', () => {
 
       mockMetricsCollector.collectCurrentMetrics = jest.fn().mockResolvedValue(mockMetrics)
 
-      const request = new NextRequest('http://localhost/api/github/collect')
+      const request = createRequest('POST')
 
       const response = await POST(request)
       const data = await response.json()
@@ -64,7 +90,7 @@ describe('/api/github/collect', () => {
       const error = new Error('GitHub API rate limit exceeded')
       mockMetricsCollector.collectCurrentMetrics = jest.fn().mockRejectedValue(error)
 
-      const request = new NextRequest('http://localhost/api/github/collect')
+      const request = createRequest('POST')
 
       const response = await POST(request)
       const data = await response.json()
@@ -82,7 +108,7 @@ describe('/api/github/collect', () => {
     it('should handle unknown errors', async () => {
       mockMetricsCollector.collectCurrentMetrics = jest.fn().mockRejectedValue('Unknown error')
 
-      const request = new NextRequest('http://localhost/api/github/collect')
+      const request = createRequest('POST')
 
       const response = await POST(request)
       const data = await response.json()
@@ -98,7 +124,7 @@ describe('/api/github/collect', () => {
     it('should handle non-Error objects', async () => {
       mockMetricsCollector.collectCurrentMetrics = jest.fn().mockRejectedValue({ message: 'Custom error' })
 
-      const request = new NextRequest('http://localhost/api/github/collect')
+      const request = createRequest('POST')
 
       const response = await POST(request)
       const data = await response.json()
@@ -124,8 +150,8 @@ describe('/api/github/collect', () => {
       mockMetricsCollector.hasCollectedToday = jest.fn().mockResolvedValue(true)
       mockMetricsCollector.getLatestMetrics = jest.fn().mockResolvedValue(mockMetrics)
 
-      const request = new NextRequest('http://localhost/api/github/collect')
 
+      const request = createRequest("GET")
       const response = await GET(request)
       const data = await response.json()
 
@@ -152,8 +178,8 @@ describe('/api/github/collect', () => {
       mockMetricsCollector.hasCollectedToday = jest.fn().mockResolvedValue(false)
       mockMetricsCollector.getLatestMetrics = jest.fn().mockResolvedValue(mockMetrics)
 
-      const request = new NextRequest('http://localhost/api/github/collect')
 
+      const request = createRequest("GET")
       const response = await GET(request)
       const data = await response.json()
 
@@ -170,8 +196,8 @@ describe('/api/github/collect', () => {
       mockMetricsCollector.hasCollectedToday = jest.fn().mockResolvedValue(false)
       mockMetricsCollector.getLatestMetrics = jest.fn().mockResolvedValue(null)
 
-      const request = new NextRequest('http://localhost/api/github/collect')
 
+      const request = createRequest("GET")
       const response = await GET(request)
       const data = await response.json()
 
@@ -188,8 +214,8 @@ describe('/api/github/collect', () => {
       const error = new Error('Database connection failed')
       mockMetricsCollector.hasCollectedToday = jest.fn().mockRejectedValue(error)
 
-      const request = new NextRequest('http://localhost/api/github/collect')
 
+      const request = createRequest("GET")
       const response = await GET(request)
       const data = await response.json()
 
@@ -206,8 +232,8 @@ describe('/api/github/collect', () => {
     it('should handle unknown errors when checking status', async () => {
       mockMetricsCollector.hasCollectedToday = jest.fn().mockRejectedValue('Unknown error')
 
-      const request = new NextRequest('http://localhost/api/github/collect')
 
+      const request = createRequest("GET")
       const response = await GET(request)
       const data = await response.json()
 
@@ -223,8 +249,8 @@ describe('/api/github/collect', () => {
       mockMetricsCollector.hasCollectedToday = jest.fn().mockResolvedValue(false)
       mockMetricsCollector.getLatestMetrics = jest.fn().mockRejectedValue(new Error('Database error'))
 
-      const request = new NextRequest('http://localhost/api/github/collect')
 
+      const request = createRequest("GET")
       const response = await GET(request)
       const data = await response.json()
 

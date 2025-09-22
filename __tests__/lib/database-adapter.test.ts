@@ -318,7 +318,7 @@ describe('DatabaseAdapter', () => {
       })
 
       it('should calculate correct date range for SQLite fallback', async () => {
-        const mockMetrics = []
+        const mockMetrics: any[] = []
         mockDatabase.getMetricsInRange.mockReturnValue(mockMetrics)
 
         const now = new Date()
