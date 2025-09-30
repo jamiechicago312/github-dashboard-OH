@@ -2,7 +2,6 @@ import { Suspense } from 'react'
 import { DashboardOverview } from '@/components/dashboard-overview'
 import { ContributorStats } from '@/components/contributor-stats'
 import EnhancedRepositoryMetrics from '@/components/enhanced-repository-metrics'
-import { ActivityChart } from '@/components/activity-chart'
 import AllTimeTrendsChart from '@/components/all-time-trends-chart'
 import { LoadingCard } from '@/components/loading-card'
 
@@ -47,11 +46,6 @@ export default function HomePage() {
       {/* All-Time Trends Chart */}
       <Suspense fallback={<LoadingCard />}>
         <AllTimeTrendsChart />
-      </Suspense>
-
-      {/* Activity Chart */}
-      <Suspense fallback={<LoadingCard />}>
-        <ActivityChart />
       </Suspense>
     </div>
   )
