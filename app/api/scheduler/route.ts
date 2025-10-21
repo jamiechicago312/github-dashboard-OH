@@ -5,16 +5,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import DataCollectionScheduler from '@/lib/scheduler'
 import MetricsCollector from '@/lib/metrics-collector'
+import DatabaseHealthChecker from '@/lib/database-health'
 
 // GET /api/scheduler - Get scheduler status and statistics
 export async function GET() {
   try {
     const scheduler = DataCollectionScheduler.getInstance()
     const collector = MetricsCollector
+    const healthChecker = DatabaseHealthChecker
     
     const stats = scheduler.getStats()
     const config = scheduler.getConfig()
-    const health = collector.getHealthStatus()
+    const health = await collector.getHealthStatus()
+    const dbHealth = await healthChecker.getHealthReport()
+    const dbSummary = await healthChecker.getStatusSummary()
     
     return NextResponse.json({
       success: true,
@@ -27,6 +31,10 @@ export async function GET() {
         },
         collector: {
           health
+        },
+        database: {
+          summary: dbSummary,
+          health: dbHealth
         }
       }
     })
