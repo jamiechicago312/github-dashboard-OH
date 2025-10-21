@@ -252,12 +252,12 @@ describe('DatabaseHealthChecker', () => {
       expect(report.recommendations).toContain('Check if automated scheduler is running')
     })
 
-    it('should detect stale data (numeric timestamp)', async () => {
-      const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000
+    it('should detect stale data (old timestamp)', async () => {
+      const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
       
       mockDatabaseAdapter.getHealthStatus.mockResolvedValue({
         isHealthy: true,
-        lastCollection: twoDaysAgo, // Pass as number, not string
+        lastCollection: twoDaysAgo, // Pass as ISO string
         recordCount: 1,
         oldestRecord: '2024-01-01',
         newestRecord: '2024-01-01'

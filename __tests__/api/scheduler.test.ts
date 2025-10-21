@@ -122,6 +122,10 @@ describe('/api/scheduler', () => {
           },
           collector: {
             health: mockHealth
+          },
+          database: {
+            summary: expect.any(String),
+            health: expect.any(Object)
           }
         }
       })
